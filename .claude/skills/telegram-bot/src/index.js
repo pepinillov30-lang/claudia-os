@@ -330,9 +330,22 @@ createServer((req, res) => {
   console.log(`Claudia HTTP API escuchando en :${HTTP_PORT}`);
 });
 
+// --- Recuperación ante fallos de polling ---
+
+bot.catch((err) => {
+  console.error(`[BOT ERROR] ${err.message}`);
+  const fatal = err.message?.includes('terminated by other getUpdates') ||
+                err.code === 'EAI_AGAIN' ||
+                err.code === 'ETIMEDOUT';
+  if (fatal) {
+    console.error('[BOT FATAL] Polling irrecuperable, saliendo para que PM2 reinicie...');
+    process.exit(1);
+  }
+});
+
 // --- Arranque ---
 
-bot.launch({ dropPendingUpdates: true });
+bot.launch({ dropPendingUpdates: false });
 console.log('Claudia OS — Bot de Telegram iniciado');
 
 process.once('SIGINT', () => bot.stop('SIGINT'));

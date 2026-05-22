@@ -28,6 +28,8 @@ user/credentials/*
 .claude/logs/
 
 # Ficheros temporales
+tmp/*
+!tmp/.gitkeep
 *.tmp
 .DS_Store
 .obsidian/

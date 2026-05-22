@@ -1,0 +1,526 @@
+## Reglas de categorización — plantilla genérica
+## Se copia a user/workspaces/finanzas/rules.yaml en el primer uso.
+## El usuario añade sus merchants específicos; esta plantilla cubre los más comunes.
+##
+## Match: case-insensitive, contains. Patrón más largo matchea primero.
+## Formato subcategoría: "categoria/subcategoria" en el campo categoria del CSV.
+
+categories:
+
+  # ── HIPOTECA ──
+  hipoteca:
+    patterns:
+      - amortizacion de prestamo
+
+  # ── SUMINISTROS ──
+  suministros/luz:
+    label: "Suministros / Luz"
+    patterns:
+      - iberdrola
+      - endesa
+      - naturgy
+      - holaluz
+      - repsol luz
+      - factor energia
+      - som energia
+      - lucera
+      - octopus energy
+
+  suministros/agua:
+    label: "Suministros / Agua"
+    patterns:
+      - canal de isabel segunda
+      - agbar
+      - aigues de barcelona
+      - emasesa
+      - emasa
+      - aqualia
+
+  suministros/gas:
+    label: "Suministros / Gas"
+    patterns:
+      - naturgy gas
+      - redexis
+      - nedgia
+
+  suministros/internet:
+    label: "Suministros / Internet y móvil"
+    patterns:
+      - movistar
+      - vodafone
+      - orange
+      - o2
+      - mas movil
+      - masmovil
+      - digi
+      - pepephone
+      - pepe mobile
+      - lowi
+      - jazztel
+      - yoigo
+      - simyo
+      - finetwork
+
+  # ── ALIMENTACIÓN ──
+  alimentacion/supermercado:
+    label: "Alimentación / Supermercado"
+    patterns:
+      - mercadona
+      - lidl
+      - carrefour
+      - aldi
+      - dia supermercado
+      - eroski
+      - alcampo
+      - hipercor
+      - bon preu
+      - bonpreu
+      - consum
+      - condis
+      - ahorramas
+      - spar
+      - caprabo
+      - gadis
+      - coviran
+      - mas supermercat
+      - super
+      - hipermercat
+
+  alimentacion/especialidad:
+    label: "Alimentación / Especialidad"
+    patterns:
+      - naturitas
+      - planeta huerto
+      - planetahuerto
+      - herbolario
+
+  # ── RESTAURANTES ──
+  restaurantes/comida_llevar:
+    label: "Restaurantes / Comida para llevar"
+    patterns:
+      - glovo
+      - uber eats
+      - just eat
+      - deliveroo
+
+  restaurantes/celebraciones:
+    label: "Restaurantes / Celebraciones (pasteles etc.)"
+    patterns: []
+
+  restaurantes/cafes_desayunos:
+    label: "Restaurantes / Cafés y desayunos"
+    amount_threshold: -20
+    patterns:
+      - starbucks
+      - cafeteria
+      - cafe
+      - fleca
+      - forn
+      - pastisseria
+      - pasteleria
+      - panaderia
+
+  restaurantes/restaurante:
+    label: "Restaurantes / Restaurante"
+    patterns:
+      - mc donalds
+      - burger king
+      - telepizza
+      - dominos
+      - foster hollywood
+      - vips
+      - taco bell
+      - kfc
+      - five guys
+      - goiko
+      - la tagliatella
+      - restaurant
+      - restaurante
+
+  # ── COMPRAS ──
+  compras/ropa:
+    label: "Compras / Ropa y calzado"
+    patterns:
+      - zara
+      - pull and bear
+      - mango
+      - primark
+      - massimo dutti
+      - lefties
+      - oysho
+      - zalandose
+      - zalando
+      - uniqlo
+      - h&m
+      - bershka
+      - stradivarius
+      - intimissimi
+      - calzedonia
+      - women secret
+      - womensecret
+      - tendam
+      - cortefiel
+
+  compras/deporte:
+    label: "Compras / Deporte"
+    patterns:
+      - decathlon
+      - sprinter
+      - sport zone
+      - forum sport
+
+  compras/segunda_mano:
+    label: "Compras / Segunda mano"
+    patterns:
+      - vinted
+      - mgpvinted
+      - wallapop
+      - mgpwallapop
+      - milanuncios
+
+  compras/otros:
+    label: "Compras / Otros"
+    patterns:
+      - amazon
+      - amzn mktp
+      - www.amazon
+      - amazon.es
+      - amazon prime
+      - temu
+      - aliexpress
+      - ikea
+      - mediamarkt
+      - fnac
+      - el corte ingles
+      - pccomponentes
+      - miravia
+      - etsy
+      - tiger
+      - abacus
+      - casa del libro
+
+  # ── SALUD ──
+  salud/farmacia:
+    label: "Salud / Farmacia"
+    patterns:
+      - farmacia
+      - parafarmacia
+      - promofarma
+      - dosfarma
+      - mifarma
+
+  salud/tratamientos:
+    label: "Salud / Tratamientos"
+    patterns:
+      - fisioterapia
+      - dentista
+      - clinica dental
+      - psicologia
+      - osteopatia
+      - acupuntura
+
+  salud/gimnasio:
+    label: "Salud / Gimnasio"
+    patterns:
+      - mcfit
+      - basic fit
+      - anytime fitness
+      - dir
+      - gimnasio
+      - gym
+
+  salud/suplementacion:
+    label: "Salud / Suplementación"
+    patterns:
+      - hsnstore
+      - myprotein
+      - iherb
+
+  salud/optica:
+    label: "Salud / Óptica"
+    patterns:
+      - optica
+      - specsavers
+      - alain afflelou
+
+  # ── ESTÉTICA Y CUIDADO PERSONAL ──
+  estetica/peluqueria:
+    label: "Estética / Peluquería"
+    patterns:
+      - peluqueria
+
+  estetica/cosmetica:
+    label: "Estética / Cosmética"
+    patterns:
+      - sephora
+      - druni
+      - primor
+      - rituals
+      - lush
+
+  # ── SEGUROS ──
+  seguros/hogar_vida:
+    label: "Seguros / Hogar y vida"
+    patterns:
+      - mapfre
+      - allianz
+      - zurich
+      - generali
+      - ocaso
+
+  seguros/coche:
+    label: "Seguros / Coche"
+    patterns:
+      - linea directa
+      - pelayo
+      - mutua madrilena
+
+  seguros/mutua_salud:
+    label: "Seguros / Mutua salud"
+    patterns:
+      - sanitas
+      - adeslas
+      - asisa
+      - dkv
+
+  # ── NIÑOS ──
+  ninos/guarderia:
+    label: "Niños / Guardería"
+    patterns:
+      - guarderia
+      - escoleta
+      - escuela infantil
+
+  ninos/colegio:
+    label: "Niños / Colegio"
+    patterns:
+      - colegio
+      - comedor escolar
+
+  ninos/extraescolares:
+    label: "Niños / Extraescolares"
+    patterns: []
+
+  ninos/ropa_calzado:
+    label: "Niños / Ropa y calzado"
+    patterns:
+      - kiabi
+      - mango kids
+      - vertbaudet
+      - zippy
+      - boboli
+
+  ninos/actividades:
+    label: "Niños / Actividades"
+    patterns:
+      - casal
+      - campamento
+
+  ninos/medico:
+    label: "Niños / Médico"
+    patterns: []
+
+  ninos/otros:
+    label: "Niños / Otros"
+    patterns: []
+
+  # ── HOGAR ──
+  hogar/mantenimiento:
+    label: "Hogar / Mantenimiento y mejoras"
+    patterns:
+      - leroy merlin
+      - bricomart
+      - brico depot
+      - aki
+
+  hogar/mobiliario:
+    label: "Hogar / Mobiliario"
+    patterns:
+      - ikea
+      - kenay
+      - maisons du monde
+
+  hogar/limpieza:
+    label: "Hogar / Limpieza"
+    patterns: []
+
+  hogar/suministros:
+    label: "Hogar / Pequeñas compras"
+    patterns: []
+
+  # ── VEHÍCULO ──
+  vehiculo/parking:
+    label: "Vehículo / Parking"
+    patterns:
+      - parking
+      - easypark
+      - telpark
+      - parclick
+      - empark
+
+  vehiculo/combustible:
+    label: "Vehículo / Combustible"
+    patterns:
+      - repsol
+      - cepsa
+      - bp
+      - galp
+      - shell
+      - combustible
+      - gasolinera
+
+  vehiculo/mantenimiento:
+    label: "Vehículo / Mantenimiento"
+    patterns:
+      - norauto
+      - midas
+      - feu vert
+      - euromaster
+
+  vehiculo/prestamo:
+    label: "Vehículo / Préstamo"
+    patterns:
+      - cetelem
+
+  vehiculo/multas:
+    label: "Vehículo / Multas e impuestos"
+    patterns:
+      - sanciones
+      - dgt
+
+  # ── SUSCRIPCIONES (recurrentes digitales) ──
+  suscripciones/streaming:
+    label: "Suscripciones / Streaming"
+    patterns:
+      - netflix
+      - disney plus
+      - hbo
+      - help.max.com
+      - max.com
+      - prime video
+      - dazn
+      - spotify
+      - youtube premium
+      - crunchyroll
+      - filmin
+
+  suscripciones/apps:
+    label: "Suscripciones / Apps"
+    patterns:
+      - apple
+      - itunesappst
+      - google
+      - icloud
+      - canva
+      - notion
+      - chatgpt
+      - openai
+      - adobe
+      - dropbox
+
+  suscripciones/gaming:
+    label: "Suscripciones / Gaming"
+    patterns:
+      - steamgames
+      - steam
+      - playstation
+      - nintendo
+      - xbox
+
+  # ── OCIO (puntual) ──
+  ocio/cine_teatro:
+    label: "Ocio / Cine y teatro"
+    patterns:
+      - cines
+      - cinesa
+      - yelmo
+      - ocine
+      - teatro
+
+  ocio/deporte_eventos:
+    label: "Ocio / Deporte y eventos"
+    patterns:
+      - ticketmaster
+      - entradas.com
+      - eventbrite
+
+  ocio/juegos_libros:
+    label: "Ocio / Juegos y libros"
+    patterns:
+      - casa del libro
+      - fnac
+
+  # ── VACACIONES ──
+  vacaciones:
+    patterns:
+      - booking
+      - airbnb
+      - hotel
+      - camping
+
+  # ── MASCOTA ──
+  mascota:
+    patterns:
+      - kiwoko
+      - tiendanimal
+      - veterinar
+
+  # ── AHORROS (no es gasto) ──
+  ahorros:
+    is_saving: true
+    patterns:
+      - coinbase
+      - indexa capital
+      - myinvestor
+      - fondo
+
+  # ── TRASPASOS INTERNOS (neutro) ──
+  traspasos_internos:
+    is_neutral: true
+    patterns:
+      - traspaso desde cuenta
+      - traspaso a cuenta
+      - transferencia entre cuentas
+
+  # ── INGRESOS ──
+  ingresos/nomina:
+    label: "Ingresos / Nómina"
+    is_income: true
+    patterns:
+      - nomina
+      - nómina
+      - abono de nomina
+
+  ingresos/otros:
+    label: "Ingresos / Otros"
+    is_income: true
+    patterns: []
+
+  # ── BIZUMS (cajón de sastre) ──
+  bizums:
+    patterns:
+      - bizum
+
+  # ── FINANCIERO ──
+  financiero:
+    label: "Financiero / Comisiones"
+    patterns:
+      - comision
+      - comisiones
+
+  # ── DONACIONES ──
+  donaciones:
+    patterns:
+      - donacion
+      - ong
+      - unicef
+      - cruz roja
+      - caritas
+
+## Umbrales para sugerir desglose de merchants
+enrich_thresholds:
+  min_amount: 500
+  min_transactions: 10
+
+## Fallback LLM para movimientos sin match
+llm_fallback: true

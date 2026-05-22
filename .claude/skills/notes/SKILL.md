@@ -10,6 +10,7 @@ Los ficheros viven en `user/workspaces/_me/notes/`:
 
 - `tasks.md` — tareas pendientes y recordatorios
 - `ideas.md` — ideas sueltas
+- `wishlist.md` — cosas que el usuario quiere comprar, leer, probar o guardar para después
 
 > **Personalización:** antes de ejecutar, lee `user/behavior.md` en este directorio. Si tiene contenido, aplícalo como ajustes sobre el comportamiento de esta skill — en caso de conflicto con lo definido aquí, prevalece lo del usuario.
 
@@ -36,6 +37,11 @@ Los ficheros viven en `user/workspaces/_me/notes/`:
 **Idea** → añade a `ideas.md`
 > "anota esta idea", "apunta esto como idea"
 > Formato: `- YYYY-MM-DD — descripción`
+
+**Wishlist** → añade a `wishlist.md` en la sección correspondiente
+> "quiero comprar X", "añade a wishlist", "guarda este libro", "me interesa este...", "apunta que quiero..."
+> Formato: `- YYYY-MM-DD — **Título** (detalles). URL si hay`
+> Secciones sugeridas: `## Libros`, `## Productos`, `## Cursos`, `## Otros`. Crea la sección si no existe.
 
 **Consulta** → lee y resume el fichero correspondiente
 > "¿qué tengo pendiente?", "muéstrame las tareas"
