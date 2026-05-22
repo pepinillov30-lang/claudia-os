@@ -85,13 +85,14 @@ Las skills sin marca en "Requiere" funcionan desde el primer minuto. Las demás 
 | `claudia-critique` | Análisis crítico de textos argumentativos: evalúa solidez con el framework Paul & Elder (8 elementos + 9 estándares), detecta falacias lógicas y sesgos cognitivos. Incluye modo auto-critique para revisar tus propios borradores antes de publicar | — |
 | `claudia-intake` | Pipeline asíncrono de contenido: encola URLs desde cualquier canal, las procesa en batch y genera un briefing dual (Telegram + email) con lo más relevante | — |
 
-**Organizar tu día**
+**Organizar tu vida**
 
 | Skill | Qué hace | Requiere |
 |-------|----------|----------|
 | `notes` | Captura tareas, ideas y recordatorios por lenguaje natural. Detecta la intención ("anota que...", "recuérdame el lunes...") y organiza automáticamente | — |
 | `claudia-calendar` | Lee y gestiona Google Calendar: crea, modifica y borra eventos | Google Apps Script (gratuito) |
 | `claudia-gmail` | Lee, busca, etiqueta, redacta borradores y envía correo. Crea borradores por defecto para que tú apruebes antes de enviar | Google OAuth2 (gratuito) |
+| `claudia-finanzas` | Importa extractos bancarios, categoriza movimientos con reglas editables, enriquece con detalle de merchants y genera dashboards interactivos de gastos, ingresos y ahorro | — |
 
 **Crear y producir**
 
