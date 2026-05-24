@@ -16,6 +16,7 @@ import csv
 import json
 import os
 import sys
+from collections import defaultdict
 from datetime import datetime, timedelta
 
 import yaml
@@ -65,9 +66,12 @@ def load_enrichments(enrichments_dir):
             reader = csv.DictReader(f)
             for row in reader:
                 fecha_extracto = row.get("fecha_extracto", "").strip()
-                importe_str = row.get("importe", "").strip()
                 subcat = row.get("subcategoria", "").strip()
-                if not fecha_extracto or not importe_str or not subcat:
+                status = row.get("status", "matched").strip()
+                if not fecha_extracto or not subcat or status != "matched":
+                    continue
+                importe_str = row.get("importe_total", row.get("importe", "")).strip()
+                if not importe_str:
                     continue
                 try:
                     importe = float(importe_str.replace(",", "."))
@@ -79,7 +83,24 @@ def load_enrichments(enrichments_dir):
                     "importe": importe,
                     "category": subcat,
                 })
-    return enrichments
+    return _resolve_enrichment_groups(enrichments)
+
+
+def _resolve_enrichment_groups(enrichments):
+    groups = defaultdict(list)
+    for e in enrichments:
+        key = (e["fecha"], f"{e['importe']:.2f}")
+        groups[key].append(e["category"])
+    resolved = []
+    for (fecha, importe_str), cats in groups.items():
+        unique_cats = set(cats)
+        if len(unique_cats) == 1:
+            resolved.append({
+                "fecha": fecha,
+                "importe": float(importe_str),
+                "category": unique_cats.pop(),
+            })
+    return resolved
 
 
 def match_enrichment(fecha_str, importe, enrichments, tolerance_days=3):

@@ -51,6 +51,7 @@ def load_rules(path):
     categories = data.get("categories", {})
     cat_labels = {}
     patterns_map = {}
+    enrichment_patterns_map = {}
     for cat_key, cat_data in categories.items():
         if not isinstance(cat_data, dict):
             continue
@@ -60,11 +61,45 @@ def load_rules(path):
         patterns = cat_data.get("patterns", [])
         if patterns:
             patterns_map[cat_key] = [str(p) for p in patterns]
-    return cat_labels, patterns_map
+        e_patterns = cat_data.get("enrichment_patterns", [])
+        if e_patterns:
+            enrichment_patterns_map[cat_key] = [str(p) for p in e_patterns]
+    return cat_labels, patterns_map, enrichment_patterns_map
 
 
 def main_cat(c):
     return c.split("/")[0] if "/" in c else c
+
+
+def load_enrichment_breakdown(enrichments_dir):
+    breakdown = defaultdict(lambda: defaultdict(float))
+    if not os.path.isdir(enrichments_dir):
+        return {}
+    for fname in os.listdir(enrichments_dir):
+        if not fname.endswith(".csv"):
+            continue
+        path = os.path.join(enrichments_dir, fname)
+        with open(path, encoding="utf-8") as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                status = row.get("status", "matched").strip()
+                if status != "matched":
+                    continue
+                subcat = row.get("subcategoria", "").strip()
+                importe_str = row.get("importe_item", row.get("importe", "")).strip()
+                fecha = row.get("fecha_extracto", row.get("fecha_pedido", "")).strip()
+                if not subcat or not importe_str or len(fecha) < 4:
+                    continue
+                try:
+                    amount = abs(float(importe_str.replace(",", ".")))
+                except (ValueError, TypeError):
+                    continue
+                year = fecha[:4]
+                breakdown[year][subcat] += amount
+    result = {}
+    for year, cats in breakdown.items():
+        result[year] = {cat: round(total, 2) for cat, total in sorted(cats.items())}
+    return result
 
 
 def generate(workspace_path):
@@ -72,7 +107,7 @@ def generate(workspace_path):
     extractos_dir = os.path.join(workspace_path, "data", "extractos")
     dashboard_dir = os.path.join(workspace_path, "dashboard")
 
-    cat_labels, patterns_map = load_rules(rules_path)
+    cat_labels, patterns_map, enrichment_patterns_map = load_rules(rules_path)
     for main, label in CAT_MAIN_LABELS.items():
         if main not in cat_labels:
             cat_labels[main] = label
@@ -171,6 +206,10 @@ def generate(workspace_path):
         merchants = sorted(top_merchants_data[y].items(), key=lambda x: -x[1])[:20]
         top_merchants_out[y] = [[name, round(amount, 2)] for name, amount in merchants]
 
+    enrichment_breakdown = load_enrichment_breakdown(
+        os.path.join(workspace_path, "data", "enrichments")
+    )
+
     data = {
         "years": years,
         "summary": summary,
@@ -180,7 +219,9 @@ def generate(workspace_path):
         "top_merchants": top_merchants_out,
         "cat_labels": cat_labels,
         "patterns_map": patterns_map,
+        "enrichment_patterns_map": enrichment_patterns_map,
         "concepts_by_cat": concepts_out,
+        "enrichment_breakdown": enrichment_breakdown,
         "insights": [],
         "alerts": [],
         "generated_at": datetime.now().strftime("%Y-%m-%d %H:%M"),

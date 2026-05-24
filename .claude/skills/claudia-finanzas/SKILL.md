@@ -48,15 +48,18 @@ Al ejecutar cualquier comando `/claudia-finanzas`, comprobar si existe `user/wor
 
 ```
 user/workspaces/claudia-finanzas/
-├── rules.yaml              ← reglas de categorización
+├── rules.yaml              ← reglas de categorización (extractos + enrichment_patterns de productos)
 ├── CLAUDE.md
 ├── data/
-│   ├── extractos/          ← CSVs normalizados (un fichero por periodo: 2024.csv, 2025.csv)
-│   └── enrichments/        ← desglose de merchants (amazon_2026.csv, etc.)
+│   ├── extractos/          ← CSVs normalizados (un fichero por año: 2024.csv, 2025.csv)
+│   ├── extractos_raw/      ← originales sin tocar, tal como los subió el usuario
+│   └── enrichments/        ← desglose de merchants y tickets (formato unificado)
 └── dashboard/
     ├── index.html          ← dashboard HTML
     └── data.json           ← datos generados por pipeline
 ```
+
+**`extractos_raw/`** almacena los ficheros originales del usuario (CSV, Excel, etc.) como backup. Nombrado: `{año}_{banco}_{fecha_import}.{ext}` (ej: `2026_bbva_20260524.xlsx`). Permite regenerar los normalizados si cambia el formato canónico o hay un error en la normalización.
 
 ### Formato CSV canónico
 
@@ -79,30 +82,79 @@ Los scripts están en `.claude/skills/claudia-finanzas/pipeline/`.
 
 **Invocación:**
 ```bash
-python3 .claude/skills/claudia-finanzas/pipeline/categorize.py user/workspaces/claudia-finanzas
-python3 .claude/skills/claudia-finanzas/pipeline/generate.py user/workspaces/claudia-finanzas
-python3 .claude/skills/claudia-finanzas/pipeline/insights.py user/workspaces/claudia-finanzas
+python3 .claude/skills/claudia-finanzas/pipeline/merge_extract.py <workspace> <new_csv>
+python3 .claude/skills/claudia-finanzas/pipeline/categorize.py <workspace>
+python3 .claude/skills/claudia-finanzas/pipeline/generate.py <workspace>
+python3 .claude/skills/claudia-finanzas/pipeline/insights.py <workspace>
+python3 .claude/skills/claudia-finanzas/pipeline/enrich_products.py <workspace> <enrichment_csv>
+python3 .claude/skills/claudia-finanzas/pipeline/match_enrichments.py <workspace> <enrichment_csv>
 ```
 
-- `categorize.py` — aplica rules.yaml + enrichments a CSVs, output JSON con {matched, uncategorized, total, updated}
-- `generate.py` — lee CSVs categorizados → genera data.json para dashboard
+- `merge_extract.py` — mergea CSV normalizado con extractos existentes, dedup por (fecha,concepto,importe), output JSON con {new, duplicates, total, years_affected}
+- `categorize.py` — aplica rules.yaml + enrichments a CSVs, output JSON con {matched, uncategorized, total, updated}. Enrichments con categorías mixtas (tickets con varios productos) no sobreescriben la categoría del extracto.
+- `generate.py` — lee CSVs categorizados + enrichments → genera data.json con `enrichment_breakdown` para analytics detallados
 - `insights.py` — analiza data.json → añade campos insights y alerts
+- `enrich_products.py` — categoriza productos de enrichments contra `rules.yaml (sección `enrichment_patterns`)` (determinista, sin IA)
+- `match_enrichments.py` — cruza enrichments con extracto por fecha±5d + importe±0.02€, asigna status (matched/provisional/unmatched)
 
-El pipeline completo es: categorize → generate → insights.
+El pipeline completo es: import (IA) → merge → categorize → generate → insights.
 
 ## Comandos
 
 ### `/claudia-finanzas import <file>`
 
-Importa un extracto y lo normaliza al CSV canónico.
+Importa un extracto de **cualquier formato** y lo normaliza al CSV canónico usando IA.
+
+El usuario puede subir CSV de cualquier banco, Excel (.xlsx), texto pegado en el chat, o cualquier formato legible. La IA interpreta la estructura y genera el CSV canónico. Los scripts Python downstream siempre reciben el mismo formato.
 
 **Flujo:**
-1. Detectar formato con parsers de `.claude/skills/claudia-finanzas/parsers/`
-2. Normalizar a CSV canónico con las 7 columnas
-3. Dedup: si ya existen datos para el mismo periodo, mergear sin duplicar (fecha+concepto+importe)
-4. Guardar en `data/extractos/{año}.csv` (un fichero por año natural)
-5. Ejecutar pipeline completo: categorize → generate → insights
-6. Mostrar resumen: X movimientos importados, Y categorizados, Z pendientes
+
+**Paso 0 — Guardar original:**
+
+Copiar el fichero original (sin modificar) a `data/extractos_raw/` con nombre descriptivo: `{año}_{banco}_{fecha_import}.{ext}`. Si el usuario pega texto inline, guardar como `.txt`. Crear el directorio si no existe.
+
+**Paso 1 — Leer el fichero:**
+- `.xlsx`/`.xls` → convertir a texto con openpyxl (ya en venv):
+  ```bash
+  source .claude/skills/claudia-finanzas/venv/bin/activate && python3 -c "
+  import openpyxl, sys
+  wb = openpyxl.load_workbook(sys.argv[1])
+  ws = wb.active
+  for row in ws.iter_rows(values_only=True):
+      print('\t'.join(str(c) if c is not None else '' for c in row))
+  " <ruta_fichero>
+  ```
+- `.csv`/`.txt` → leer con Read tool. Si hay problemas de encoding (caracteres rotos), convertir primero: `iconv -f ISO-8859-1 -t UTF-8 <fichero>`
+- Texto inline → el usuario lo pega directamente en el chat, Claude lo lee del mensaje
+
+**Paso 2 — Normalizar (IA):**
+
+Claude interpreta el contenido y genera un CSV normalizado. Reglas de normalización:
+- **Fechas**: convertir a YYYY-MM-DD (detectar formato del banco: DD/MM/YYYY, DD-MM-YYYY, etc.)
+- **Importes**: punto decimal, sin separador de miles, sin símbolo €. Ejemplo: `1.234,56 €` → `1234.56`
+- **Signo**: gastos/cargos = negativo, ingresos/abonos = positivo
+- **Columnas cargo/abono separadas** (común en ING, BBVA, Bankinter): combinar en una sola columna `importe` (cargo como negativo, abono como positivo)
+- **Filas de metadatos** (cabeceras del banco, resúmenes, totales): ignorar, solo extraer filas de movimientos
+- **`categoria`**: dejar SIEMPRE vacía (la rellena categorize.py)
+- **`movimiento`**: mapear de la columna del banco que describa el tipo de operación (pago con tarjeta, transferencia, etc.). Si no existe, dejar vacío
+- **`observaciones`**: mapear de columnas adicionales del banco (referencia, número de tarjeta, detalle ampliado). Si no existe, dejar vacío
+- **`saldo`**: mapear si existe en el banco. Si no, dejar vacío
+
+Escribir el CSV normalizado a `/tmp/extracto_normalized.csv` con las 7 columnas canónicas.
+
+**Paso 3 — Validar con el usuario:**
+
+Mostrar las primeras 5 filas normalizadas en formato tabla para que el usuario confirme que la normalización es correcta. Esperar confirmación antes de continuar.
+
+**Paso 4 — Mergear (determinista):**
+```bash
+source .claude/skills/claudia-finanzas/venv/bin/activate && python3 .claude/skills/claudia-finanzas/pipeline/merge_extract.py <workspace> /tmp/extracto_normalized.csv
+```
+Dedup automático por (fecha, concepto, importe). Agrupa por año en `data/extractos/{año}.csv`.
+
+**Paso 5 — Pipeline:**
+
+Ejecutar categorize → generate → insights. Mostrar resumen: X movimientos nuevos, Y duplicados descartados, Z categorizados, W pendientes.
 
 ### `/claudia-finanzas categorizar`
 
@@ -133,20 +185,64 @@ Categorización asistida interactiva para movimientos sin categoría.
 
 **Importante:** al añadir patterns a rules.yaml, usar el concepto normalizado en minúsculas. Insertar en la categoría correcta respetando la estructura YAML.
 
-### `/claudia-finanzas enrich <merchant>`
+### `/claudia-finanzas enrich <fuente>`
 
-Enriquece movimientos de un merchant con detalle de pedidos.
+Pipeline unificado de enrichment. Funciona igual para tickets de supermercado (foto), pedidos de Amazon/Privalia (texto/CSV), o cualquier otra fuente.
+
+**Formato unificado de enrichment CSV:**
+```csv
+fecha_pedido,fecha_extracto,importe_total,importe_item,subcategoria,item,source,status
+```
+- `importe_total`: importe del movimiento bancario (para matching)
+- `importe_item`: importe del producto individual (para analytics)
+- `source`: `ticket` | `amazon` | `privalia` | etc.
+- `status`: `matched` | `provisional` | `unmatched` (lo rellena match_enrichments.py)
 
 **Flujo:**
-1. Pedir al usuario el detalle (CSV exportado o texto del historial)
-2. Parsear: fecha_pedido, importe, items, subcategoría
-3. Cruzar con extracto por importe exacto + fecha ± 3 días
-4. Las subcategorías DEBEN usar claves de rules.yaml (e.g. `ninos/ropa_calzado`, NO `niños/ropa`)
-5. Guardar en `data/enrichments/{merchant}_{año}.csv`:
-   ```csv
-   fecha_pedido,fecha_extracto,importe,subcategoria,items,order_num
-   ```
-6. Ejecutar pipeline completo
+
+**Paso 1 — Leer la entrada:**
+- Imagen (ticket) → leer con Read tool (Claude multimodal la interpreta directamente)
+- CSV/texto → leer con Read tool o inline del chat
+- Las subcategorías DEBEN usar claves de rules.yaml (e.g. `ninos/ropa_calzado`, NO `niños/ropa`)
+
+**Paso 2 — Normalizar (IA):**
+
+Claude extrae del contenido:
+- `fecha_pedido`: fecha del ticket/pedido (YYYY-MM-DD)
+- `importe_total`: total del ticket/pedido (negativo)
+- Por cada producto/item: `importe_item` (negativo), `item` (descripción)
+- `source`: detectar automáticamente (ticket, amazon, privalia, etc.)
+- `subcategoria`: categorizar los productos que Claude identifique con confianza. Dejar vacía los dudosos.
+
+Escribir el enrichment CSV en `data/enrichments/{source}_{año}.csv` (append si ya existe).
+
+**Paso 3 — Categorización determinista:**
+```bash
+source .claude/skills/claudia-finanzas/venv/bin/activate && python3 .claude/skills/claudia-finanzas/pipeline/enrich_products.py <workspace> <enrichment_csv>
+```
+Matchea items sin subcategoría contra `rules.yaml (sección `enrichment_patterns`)`. Los ya conocidos se categorizan sin IA.
+
+**Paso 4 — Categorización IA (solo items nuevos):**
+
+Si `enrich_products.py` reporta items sin match (`unmatched_items`):
+1. Claude los categoriza usando claves de rules.yaml
+2. Actualiza el enrichment CSV con las subcategorías
+3. Añade los nuevos patterns a `rules.yaml (sección `enrichment_patterns`)` para que en próximos enrichments se resuelvan sin IA
+
+**Paso 5 — Cruce con extracto:**
+```bash
+python3 .claude/skills/claudia-finanzas/pipeline/match_enrichments.py <workspace> <enrichment_csv>
+```
+- Match por `fecha ± 5 días` + `importe_total ± 0.02€`
+- `matched` → vinculado al extracto
+- `provisional` → el extracto no cubre esa fecha aún (se reconciliará al importar extracto nuevo)
+- `unmatched` → el extracto cubre la fecha pero no hay match (otra tarjeta/cuenta, o error)
+
+**Paso 6 — Pipeline:**
+
+Ejecutar categorize → generate → insights. El `categorize.py` solo sobreescribe la categoría del extracto si TODOS los items de un enrichment tienen la misma subcategoría. Si son mixtos (ticket con niños + alimentación), el extracto conserva su categoría original.
+
+Mostrar resumen: N items, M categorías asignadas (X deterministas + Y por IA), estado de matching.
 
 ### `/claudia-finanzas dashboard`
 
@@ -214,16 +310,13 @@ Claves mensuales: `"1"`, `"2"`, ..., `"12"` (string, NO `"2026-01"`).
 Conceptos: `[nombre, count, total]` tuples. Total es negativo para gastos.
 Top merchants: `[[nombre, importe_abs], ...]` arrays.
 
-## Parsers de banco
+## Parsers de banco (legacy)
 
-Los parsers viven en `parsers/` y convierten formatos específicos al CSV canónico.
-
-Cada parser es un módulo Python con:
-- `detect(header_line: str) -> bool`
-- `parse(content: str) -> list[dict]` → retorna `{fecha, concepto, importe, saldo}`
+Los parsers en `parsers/` son utilidades auxiliares. El import principal usa normalización por IA (ver comando `import` arriba). `generic_csv.py` queda disponible como fallback programático si se necesita en scripts fuera del flujo interactivo.
 
 ## Notas de diseño
 
+- **IA como parser universal:** la normalización de extractos la hace la IA, no parsers deterministas. Esto permite al usuario subir cualquier formato sin adaptaciones. El pipeline determinista (categorize → generate → insights) solo trabaja con CSV canónico.
 - **Privacidad:** los datos financieros nunca salen del sistema local
-- **Idempotencia:** importar el mismo extracto no duplica (dedup por fecha+concepto+importe)
+- **Idempotencia:** importar el mismo extracto no duplica (dedup por fecha+concepto+importe en `merge_extract.py`)
 - **Separación framework/usuario:** templates y pipeline en la skill (actualizable), datos y rules en el workspace del usuario (protegido)
