@@ -51,7 +51,13 @@ def load_rules(path):
                 "redirect_cat": redirect_cat,
             })
     rules.sort(key=lambda r: -len(r["pattern"]))
-    return rules
+    name_overrides = []
+    for entry in data.get("name_overrides", []):
+        pat = entry.get("pattern", "").strip()
+        force = entry.get("force_main", "").strip()
+        if pat and force:
+            name_overrides.append({"pattern": pat.lower(), "force_main": force})
+    return rules, name_overrides
 
 
 def load_enrichments(enrichments_dir):
@@ -114,8 +120,19 @@ def match_enrichment(fecha_str, importe, enrichments, tolerance_days=3):
     return None
 
 
-def categorize_row(concepto, movimiento, observaciones, importe, rules):
+def categorize_row(concepto, movimiento, observaciones, importe, rules, name_overrides=None):
     search_text = f"{concepto} {movimiento} {observaciones}".lower()
+    forced_main = None
+    if name_overrides:
+        for ov in name_overrides:
+            if ov["pattern"] in search_text:
+                forced_main = ov["force_main"]
+                break
+    if forced_main:
+        for rule in rules:
+            if rule["pattern"] in search_text and rule["category"].startswith(forced_main + "/"):
+                return rule["category"]
+        return forced_main + "/otros"
     for rule in rules:
         if rule["pattern"] in search_text:
             cat = rule["category"]
@@ -128,7 +145,7 @@ def categorize_row(concepto, movimiento, observaciones, importe, rules):
     return None
 
 
-def process_workspace(workspace_path):
+def process_workspace(workspace_path, recat=False):
     rules_path = os.path.join(workspace_path, "rules.yaml")
     extractos_dir = os.path.join(workspace_path, "data", "extractos")
     enrichments_dir = os.path.join(workspace_path, "data", "enrichments")
@@ -137,7 +154,7 @@ def process_workspace(workspace_path):
         print(json.dumps({"error": "rules.yaml not found", "path": rules_path}))
         sys.exit(1)
 
-    rules = load_rules(rules_path)
+    rules, name_overrides = load_rules(rules_path)
     enrichments = load_enrichments(enrichments_dir)
 
     total = 0
@@ -185,18 +202,30 @@ def process_workspace(workspace_path):
                 matched += 1
                 continue
 
-            if existing_cat:
-                matched += 1
-                continue
-
-            new_cat = categorize_row(concepto, movimiento, observaciones, importe, rules)
-            if new_cat:
-                row["categoria"] = new_cat
-                changed = True
-                matched += 1
-                updated += 1
+            if recat:
+                new_cat = categorize_row(concepto, movimiento, observaciones, importe, rules, name_overrides)
+                if new_cat:
+                    if existing_cat != new_cat:
+                        row["categoria"] = new_cat
+                        changed = True
+                        updated += 1
+                    matched += 1
+                elif existing_cat:
+                    matched += 1
+                else:
+                    uncategorized += 1
             else:
-                uncategorized += 1
+                if existing_cat:
+                    matched += 1
+                    continue
+                new_cat = categorize_row(concepto, movimiento, observaciones, importe, rules, name_overrides)
+                if new_cat:
+                    row["categoria"] = new_cat
+                    changed = True
+                    matched += 1
+                    updated += 1
+                else:
+                    uncategorized += 1
 
         if changed:
             with open(fpath, "w", encoding="utf-8", newline="") as f:
@@ -215,6 +244,7 @@ def process_workspace(workspace_path):
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
-        print(f"Usage: {sys.argv[0]} <workspace_path>")
+        print(f"Usage: {sys.argv[0]} <workspace_path> [--recat]")
         sys.exit(1)
-    process_workspace(sys.argv[1])
+    recat = "--recat" in sys.argv
+    process_workspace(sys.argv[1], recat=recat)

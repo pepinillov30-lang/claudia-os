@@ -63,7 +63,7 @@ h1 { font-size: 1.5rem; font-weight: 600; margin-bottom: 4px; }
 .detail-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
 .detail-panel { background: var(--surface2); border-top: 1px solid var(--border); }
 .detail-panel td { padding: 12px 16px !important; }
-.detail-inner { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+.detail-inner { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px; }
 .detail-col h4 { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted); margin-bottom: 8px; }
 .detail-col ul { list-style: none; padding: 0; margin: 0; max-height: 240px; overflow-y: auto; }
 .detail-col li { font-size: 0.78rem; padding: 3px 0; display: flex; justify-content: space-between; gap: 8px; border-bottom: 1px solid rgba(42,45,58,0.3); }
@@ -670,6 +670,29 @@ function fillDetail(cat) {
     patternsHtml = '<li>Sin patterns</li>';
   }
 
+  const enrichItems = [];
+  const ei = D.enrichment_items || {};
+  years.forEach(y => {
+    const yItems = ei[y] || {};
+    const keys = cat.includes('/') ? [cat] : Object.keys(yItems).filter(k => k === cat || k.startsWith(cat + '/'));
+    keys.forEach(k => {
+      (yItems[k] || []).forEach(([name, amount, source]) => {
+        enrichItems.push({name, amount, source});
+      });
+    });
+  });
+
+  let enrichHtml = '';
+  if (enrichItems.length > 0) {
+    enrichItems.sort((a,b) => a.amount - b.amount);
+    enrichHtml = `<div class="detail-col">
+      <h4>Enrichments (${enrichItems.length})</h4>
+      <ul>${enrichItems.map(i =>
+        `<li><span class="name" title="${i.name}">${i.source ? '<b>'+i.source+'</b> · ' : ''}${i.name}</span><span class="val">${fmt(i.amount)}</span></li>`
+      ).join('')}</ul>
+    </div>`;
+  }
+
   el.innerHTML = `
     <div class="detail-col">
       <h4>Conceptos del extracto (${Y || 'todos'})</h4>
@@ -679,6 +702,7 @@ function fillDetail(cat) {
       <h4>Patterns en rules.yaml (${patterns.length})</h4>
       <ul class="pattern-list">${patternsHtml}</ul>
     </div>
+    ${enrichHtml}
   `;
 }
 

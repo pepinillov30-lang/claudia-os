@@ -83,7 +83,7 @@ Los scripts están en `.claude/skills/claudia-finanzas/pipeline/`.
 **Invocación:**
 ```bash
 python3 .claude/skills/claudia-finanzas/pipeline/merge_extract.py <workspace> <new_csv>
-python3 .claude/skills/claudia-finanzas/pipeline/categorize.py <workspace>
+python3 .claude/skills/claudia-finanzas/pipeline/categorize.py <workspace> [--recat]
 python3 .claude/skills/claudia-finanzas/pipeline/generate.py <workspace>
 python3 .claude/skills/claudia-finanzas/pipeline/insights.py <workspace>
 python3 .claude/skills/claudia-finanzas/pipeline/enrich_products.py <workspace> <enrichment_csv>
@@ -91,7 +91,7 @@ python3 .claude/skills/claudia-finanzas/pipeline/match_enrichments.py <workspace
 ```
 
 - `merge_extract.py` — mergea CSV normalizado con extractos existentes, dedup por (fecha,concepto,importe), output JSON con {new, duplicates, total, years_affected}
-- `categorize.py` — aplica rules.yaml + enrichments a CSVs, output JSON con {matched, uncategorized, total, updated}. Enrichments con categorías mixtas (tickets con varios productos) no sobreescriben la categoría del extracto.
+- `categorize.py` — aplica rules.yaml + enrichments a CSVs, output JSON con {matched, uncategorized, total, updated}. Enrichments con categorías mixtas (tickets con varios productos) no sobreescriben la categoría del extracto. Flag `--recat`: re-evalúa todos los movimientos contra las reglas actuales (útil tras añadir o modificar patterns/thresholds). Enrichments siguen teniendo prioridad; movimientos sin match en rules mantienen su categoría existente.
 - `generate.py` — lee CSVs categorizados + enrichments → genera data.json con `enrichment_breakdown` para analytics detallados
 - `insights.py` — analiza data.json → añade campos insights y alerts
 - `enrich_products.py` — categoriza productos de enrichments contra `rules.yaml (sección `enrichment_patterns`)` (determinista, sin IA)

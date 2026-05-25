@@ -73,8 +73,9 @@ def main_cat(c):
 
 def load_enrichment_breakdown(enrichments_dir):
     breakdown = defaultdict(lambda: defaultdict(float))
+    items = defaultdict(lambda: defaultdict(list))
     if not os.path.isdir(enrichments_dir):
-        return {}
+        return {}, {}
     for fname in os.listdir(enrichments_dir):
         if not fname.endswith(".csv"):
             continue
@@ -96,10 +97,17 @@ def load_enrichment_breakdown(enrichments_dir):
                     continue
                 year = fecha[:4]
                 breakdown[year][subcat] += amount
-    result = {}
+                item_name = row.get("item", "").strip()
+                source = row.get("source", "").strip()
+                if item_name:
+                    items[year][subcat].append([item_name, round(amount, 2), source])
+    totals = {}
     for year, cats in breakdown.items():
-        result[year] = {cat: round(total, 2) for cat, total in sorted(cats.items())}
-    return result
+        totals[year] = {cat: round(total, 2) for cat, total in sorted(cats.items())}
+    items_out = {}
+    for year, cats in items.items():
+        items_out[year] = {cat: lst for cat, lst in sorted(cats.items())}
+    return totals, items_out
 
 
 def generate(workspace_path):
@@ -206,7 +214,7 @@ def generate(workspace_path):
         merchants = sorted(top_merchants_data[y].items(), key=lambda x: -x[1])[:20]
         top_merchants_out[y] = [[name, round(amount, 2)] for name, amount in merchants]
 
-    enrichment_breakdown = load_enrichment_breakdown(
+    enrichment_breakdown, enrichment_items = load_enrichment_breakdown(
         os.path.join(workspace_path, "data", "enrichments")
     )
 
@@ -222,6 +230,7 @@ def generate(workspace_path):
         "enrichment_patterns_map": enrichment_patterns_map,
         "concepts_by_cat": concepts_out,
         "enrichment_breakdown": enrichment_breakdown,
+        "enrichment_items": enrichment_items,
         "insights": [],
         "alerts": [],
         "generated_at": datetime.now().strftime("%Y-%m-%d %H:%M"),
