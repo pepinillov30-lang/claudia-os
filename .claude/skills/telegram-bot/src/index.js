@@ -8,7 +8,7 @@ import {
   TMP_DIR, CALENDAR_SCRIPT, HTTP_PORT, HTTP_SECRET,
   CLAUDIA_ROOT,
 } from './config.js';
-import { runClaude } from './claude.js';
+import { runClaude, injectSessionContext } from './claude.js';
 import { enqueue, cancelCurrent, getQueueLength, isBusy } from './queue.js';
 import { loadSessions, getSession, setSession, clearSession } from './session.js';
 import { transcribeAudio, isWhisperAvailable } from './transcriber.js';
@@ -182,16 +182,25 @@ bot.on('voice', async (ctx) => {
 
 // --- Fotos ---
 
+const TICKET_KEYWORDS = /\b(ticket|recibo|tiquet|mercadona|lidl|bonpreu|aldi|consum|carrefour|dia|eroski|alcampo|hipercor|supermercado|super)\b/i;
+
 bot.on('photo', async (ctx) => {
   const photo = ctx.message.photo[ctx.message.photo.length - 1];
-  const caption = ctx.message.caption || 'Describe esta imagen';
+  const caption = ctx.message.caption || '';
   const imgPath = join(TMP_DIR, `img_${Date.now()}.jpg`);
 
-  const waiting = await ctx.reply('Procesando imagen...');
+  const isTicket = TICKET_KEYWORDS.test(caption);
+  const waiting = await ctx.reply(isTicket ? 'Procesando ticket...' : 'Procesando imagen...');
 
   try {
     await downloadFile(bot, photo.file_id, imgPath);
-    const prompt = `Lee la imagen en ${imgPath} y responde: ${caption}`;
+
+    let prompt;
+    if (isTicket) {
+      prompt = `Lee la imagen del ticket de compra en ${imgPath}. Ejecuta el flujo /claudia-finanzas enrich: extrae cada producto con su precio, genera el CSV de enrichment en data/enrichments/ticket_{año}.csv (append), ejecuta enrich_products.py, match_enrichments.py, categorize.py --recat y generate.py. Workspace: user/workspaces/finanzas. Responde con un resumen de los productos extraídos y su categorización.`;
+    } else {
+      prompt = `Lee la imagen en ${imgPath} y responde: ${caption || 'Describe esta imagen'}`;
+    }
 
     await handlePrompt(ctx, prompt);
   } catch (err) {
@@ -282,7 +291,7 @@ function helpText() {
 // --- HTTP API (Siri / Tailscale) ---
 
 createServer((req, res) => {
-  if (req.method !== 'POST' || req.url !== '/message') {
+  if (req.method !== 'POST') {
     res.writeHead(404).end();
     return;
   }
@@ -291,37 +300,56 @@ createServer((req, res) => {
   req.on('data', chunk => { body += chunk; });
   req.on('end', async () => {
     try {
-      const { text, secret, return_only } = JSON.parse(body);
+      const parsed = JSON.parse(body);
 
-      if (!text || !HTTP_SECRET || secret !== HTTP_SECRET) {
-        res.writeHead(401).end('Unauthorized');
-        return;
-      }
-      const voice = /[,.]?\s*responde por voz\.?$/i.test(text);
-      const cleanText = text.replace(/[,.]?\s*responde por voz\.?$/i, '').trim();
-
-      // return_only: solo devuelve el texto, sin enviar por Telegram (usado por check_reminders.js)
-      if (return_only) {
-        const result = await enqueue(async () => runClaude(ALLOWED_USER_ID, cleanText));
+      if (req.url === '/inject-context') {
+        const { text, secret } = parsed;
+        if (!text || (HTTP_SECRET && secret !== HTTP_SECRET)) {
+          res.writeHead(401).end('Unauthorized');
+          return;
+        }
+        enqueue(async () => injectSessionContext(ALLOWED_USER_ID, text))
+          .catch(err => console.error('[inject] Error en cola:', err.message));
         res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ ok: true, result }));
+        res.end(JSON.stringify({ ok: true }));
         return;
       }
 
-      let fullResponse = '';
-      const fakeCtx = {
-        chat: { id: ALLOWED_USER_ID },
-        reply: (msg, opts) => {
-          fullResponse += (fullResponse ? ' ' : '') + msg;
-          return bot.telegram.sendMessage(ALLOWED_USER_ID, msg, opts);
-        },
-        sendChatAction: (action) => bot.telegram.sendChatAction(ALLOWED_USER_ID, action).catch(() => {}),
-      };
+      if (req.url === '/message') {
+        const { text, secret, return_only } = parsed;
 
-      await handlePrompt(fakeCtx, cleanText);
+        if (!text || !HTTP_SECRET || secret !== HTTP_SECRET) {
+          res.writeHead(401).end('Unauthorized');
+          return;
+        }
+        const voice = /[,.]?\s*responde por voz\.?$/i.test(text);
+        const cleanText = text.replace(/[,.]?\s*responde por voz\.?$/i, '').trim();
 
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ ok: true, voice_text: voice ? fullResponse : '' }));
+        if (return_only) {
+          const result = await enqueue(async () => runClaude(ALLOWED_USER_ID, cleanText));
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ ok: true, result }));
+          return;
+        }
+
+        let fullResponse = '';
+        const fakeCtx = {
+          chat: { id: ALLOWED_USER_ID },
+          reply: (msg, opts) => {
+            fullResponse += (fullResponse ? ' ' : '') + msg;
+            return bot.telegram.sendMessage(ALLOWED_USER_ID, msg, opts);
+          },
+          sendChatAction: (action) => bot.telegram.sendChatAction(ALLOWED_USER_ID, action).catch(() => {}),
+        };
+
+        await handlePrompt(fakeCtx, cleanText);
+
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: true, voice_text: voice ? fullResponse : '' }));
+        return;
+      }
+
+      res.writeHead(404).end();
     } catch {
       res.writeHead(400).end('Bad request');
     }

@@ -119,3 +119,72 @@ function extractText(result) {
   }
   return JSON.stringify(result).slice(0, 4000);
 }
+
+export async function injectSessionContext(chatId, contextMessage) {
+  const session = getSession(chatId);
+  const project = session?.project || DEFAULT_PROJECT;
+  const cwd = PROJECTS[project];
+
+  const prompt = `[Sistema] He enviado este mensaje automático al usuario por Telegram:\n---\n${contextMessage}\n---\nRegistra el contexto y responde solo "ok".`;
+
+  const args = [
+    '-p', prompt,
+    '--output-format', 'json',
+    '--max-turns', '1',
+  ];
+
+  if (session?.sessionId) {
+    args.push('--resume', session.sessionId);
+  }
+
+  const env = {
+    HOME: process.env.HOME,
+    PATH: process.env.PATH || '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin',
+    TERM: 'dumb',
+    USER: process.env.USER,
+    LANG: 'en_US.UTF-8',
+  };
+
+  if (process.env.CLAUDE_CODE_OAUTH_TOKEN) {
+    env.CLAUDE_CODE_OAUTH_TOKEN = process.env.CLAUDE_CODE_OAUTH_TOKEN;
+  }
+
+  return new Promise((resolve) => {
+    const child = spawn('claude', args, {
+      cwd,
+      env,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    setChildProcess(child);
+
+    let stdout = '';
+    child.stdout.on('data', (chunk) => { stdout += chunk; });
+    child.stderr.on('data', () => {});
+
+    const timeout = setTimeout(() => {
+      child.kill('SIGTERM');
+      console.error('[inject] Timeout inyectando contexto');
+      resolve();
+    }, 60000);
+
+    child.on('close', () => {
+      clearTimeout(timeout);
+      try {
+        const parsed = parseClaudeOutput(stdout);
+        if (parsed.sessionId) {
+          setSession(chatId, { sessionId: parsed.sessionId, project });
+        }
+        console.log('[inject] Contexto inyectado en sesión');
+      } catch {
+        console.error('[inject] Error parseando respuesta');
+      }
+      resolve();
+    });
+
+    child.on('error', (err) => {
+      clearTimeout(timeout);
+      console.error('[inject] Error:', err.message);
+      resolve();
+    });
+  });
+}

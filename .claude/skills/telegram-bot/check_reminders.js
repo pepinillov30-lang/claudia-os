@@ -97,6 +97,11 @@ for (const item of due) {
   }
 
   await sendTelegram(messageText);
+
+  if (!item.needsContext) {
+    injectContext(messageText);
+  }
+
   console.log(`[reminders] Enviado: ${item.description}${item.needsContext ? ' (con contexto)' : ''}`);
 }
 
@@ -111,6 +116,25 @@ try {
   );
 } catch (e) {
   console.error('[reminders] Error en git:', e.message);
+}
+
+// --- Inyección de contexto en sesión de Claude ---
+
+function injectContext(text) {
+  const port = process.env.HTTP_PORT || 3001;
+  const secret = process.env.HTTP_SECRET || '';
+
+  const payload = JSON.stringify({ text, secret });
+  const req = http.request({
+    hostname: 'localhost',
+    port,
+    path: '/inject-context',
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(payload) },
+  }, (res) => { res.resume(); });
+  req.on('error', (e) => console.error('[reminders] Error inyectando contexto:', e.message));
+  req.write(payload);
+  req.end();
 }
 
 // --- Helpers ---

@@ -34,6 +34,15 @@ Las extensiones van a una de estas dos zonas, ambas intocables por `/update`:
 
 Regla explícita para `/update`: nunca sobrescribir `.claude/skills/*/user/` ni nada bajo `user/`.
 
+## Skills privadas
+
+Una skill puede marcarse como privada creando un fichero `.private` en su raíz (ej: `.claude/skills/mi-skill/.private`). El contenido es libre (puede describir por qué es privada, o estar vacío).
+
+Efecto:
+- `scripts/reset-test-install.sh` detecta automáticamente los `.private` markers y excluye esas skills al copiar al repo público.
+- Una verificación post-copia aborta si alguna skill privada se cuela al target.
+- Para crear una skill privada nueva: crear la skill normalmente en `.claude/skills/` y añadir un fichero `.private` en su raíz.
+
 Si el usuario pide algo que requeriría cambiar el resto de `.claude/skills/` (el código de la skill en sí) o `core/`, **guíale activamente** para implementarlo en la zona de usuario: propón la ruta concreta, crea el fichero si hace falta, y explícale que los cambios en core se perderían con el próximo `/update`. Si cree que la mejora debería ser parte del core, dile que puede abrir un issue o PR en el repo público, pero no lo hagas tú por iniciativa propia.
 
 ## Configuración centralizada

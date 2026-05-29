@@ -654,11 +654,17 @@ function fillDetail(cat) {
     }
   }
 
+  const ma = D.merchant_aliases || {};
+  const ei = D.enrichment_items || {};
+  let hasAliases = false;
   let conceptsHtml = '';
   if (concepts.length > 0) {
-    conceptsHtml = concepts.map(([name, count, total]) =>
-      `<li><span class="name" title="${name}">${name}</span><span class="val">${count}x ${fmt(total)}</span></li>`
-    ).join('');
+    conceptsHtml = concepts.map(([name, count, total]) => {
+      const alias = ma[name];
+      if (alias) hasAliases = true;
+      const label = alias ? `${name} <span style="color:var(--cyan);font-size:0.7rem">→ ${alias}</span>` : name;
+      return `<li><span class="name" title="${alias || name}">${label}</span><span class="val">${count}x ${fmt(total)}</span></li>`;
+    }).join('');
   } else {
     conceptsHtml = '<li style="color:var(--text-muted)">Sin movimientos</li>';
   }
@@ -671,7 +677,6 @@ function fillDetail(cat) {
   }
 
   const enrichItems = [];
-  const ei = D.enrichment_items || {};
   years.forEach(y => {
     const yItems = ei[y] || {};
     const keys = cat.includes('/') ? [cat] : Object.keys(yItems).filter(k => k === cat || k.startsWith(cat + '/'));
@@ -683,7 +688,7 @@ function fillDetail(cat) {
   });
 
   let enrichHtml = '';
-  if (enrichItems.length > 0) {
+  if (enrichItems.length > 0 && !hasAliases) {
     enrichItems.sort((a,b) => a.amount - b.amount);
     enrichHtml = `<div class="detail-col">
       <h4>Enrichments (${enrichItems.length})</h4>

@@ -158,6 +158,10 @@ Content-Type: application/json
 
 Usado internamente por `check_reminders.js` para enriquecer recordatorios con contexto de Claude. Tambien accesible via Tailscale o Siri Shortcuts.
 
+### Continuidad de contexto en mensajes automaticos
+
+Los mensajes automaticos (briefings, nudges, recordatorios) se envian directamente via la API de Telegram sin pasar por Claude. Para que Claude tenga contexto cuando el usuario responde a uno de estos mensajes, los scripts inyectan el contenido en la sesion activa de Claude via `POST /inject-context`. Esto lanza una llamada ligera a Claude (`--max-turns 1`, `--resume sessionId`) que registra el mensaje en el historial de la conversacion sin coste significativo.
+
 ## Nota de privacidad
 
 Los bots de Telegram no soportan cifrado de extremo a extremo (solo los Secret Chats entre usuarios lo tienen). Todo lo que pase por el bot — briefings, recordatorios, notas, respuestas de Claudia — viaja por servidores de Telegram. Apto para uso personal; no lo uses para informacion confidencial de clientes o datos sensibles de negocio.

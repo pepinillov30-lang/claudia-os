@@ -173,6 +173,38 @@ def generate_insights(data):
             "text": f"{sin_cat} movimientos sin categoría en {curr_y}. Ejecuta /claudia-finanzas categorizar para clasificarlos.",
         })
 
+    # --- Sugerencias de reglas: conceptos repetidos en categorías genéricas ---
+    generic_cats = {"sin_categoria", "compras/otros", "ninos/otros", "hogar/otros",
+                    "ocio/otros", "salud/otros", "bizums"}
+    exclude_cats = {"ingresos", "ingresos/otros", "ingresos/nomina",
+                    "ahorros", "traspasos_internos"}
+    candidate_concepts = {}
+    for y in years:
+        for cat, tuples in data.get("concepts_by_cat", {}).get(y, {}).items():
+            if cat in exclude_cats or cat.split("/")[0] in {"ingresos", "ahorros", "traspasos_internos"}:
+                continue
+            if cat not in generic_cats and not cat.endswith("/otros"):
+                continue
+            for name, count, total in tuples:
+                if count < 2:
+                    continue
+                key = name.lower().strip()
+                if key not in candidate_concepts:
+                    candidate_concepts[key] = {"name": name, "count": 0, "total": 0.0, "cat": cat}
+                candidate_concepts[key]["count"] += count
+                candidate_concepts[key]["total"] += total
+
+    rule_suggestions = []
+    for key, info in sorted(candidate_concepts.items(), key=lambda x: -x[1]["count"]):
+        if info["count"] >= 2:
+            rule_suggestions.append({
+                "concept": info["name"],
+                "count": info["count"],
+                "total": round(info["total"], 2),
+                "current_cat": info["cat"],
+            })
+    data["rule_suggestions"] = rule_suggestions[:20]
+
     return insights, alerts
 
 

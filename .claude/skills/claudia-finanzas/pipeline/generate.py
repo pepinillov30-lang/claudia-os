@@ -71,11 +71,50 @@ def main_cat(c):
     return c.split("/")[0] if "/" in c else c
 
 
+INCLUDED_STATUSES = {"matched", "provisional", "approved"}
+
+
+def load_merchant_aliases(enrichments_dir):
+    """Cruza enrichments con extractos por (fecha_extracto, importe_total) para
+    generar un mapa concepto_críptico → descripción legible."""
+    aliases = {}
+    if not os.path.isdir(enrichments_dir):
+        return aliases
+    for fname in os.listdir(enrichments_dir):
+        if not fname.endswith(".csv"):
+            continue
+        path = os.path.join(enrichments_dir, fname)
+        with open(path, encoding="utf-8") as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                if row.get("status", "").strip() not in INCLUDED_STATUSES:
+                    continue
+                fecha = (row.get("fecha_extracto", "") or row.get("fecha_pedido", "")).strip()
+                importe_str = row.get("importe_total", "").strip()
+                item = row.get("item", "").strip()
+                source = row.get("source", "").strip()
+                if fecha and importe_str and item:
+                    key = f"{fecha}|{importe_str}"
+                    if key not in aliases:
+                        aliases[key] = {"source": source, "items": []}
+                    aliases[key]["items"].append(item)
+    result = {}
+    for key, data in aliases.items():
+        items = data["items"]
+        source = data["source"]
+        if len(items) == 1:
+            result[key] = f"{source}: {items[0]}"
+        else:
+            result[key] = f"{source}: {len(items)} productos"
+    return result
+
+
 def load_enrichment_breakdown(enrichments_dir):
     breakdown = defaultdict(lambda: defaultdict(float))
+    provisional_breakdown = defaultdict(lambda: defaultdict(float))
     items = defaultdict(lambda: defaultdict(list))
     if not os.path.isdir(enrichments_dir):
-        return {}, {}
+        return {}, {}, {}
     for fname in os.listdir(enrichments_dir):
         if not fname.endswith(".csv"):
             continue
@@ -84,11 +123,11 @@ def load_enrichment_breakdown(enrichments_dir):
             reader = csv.DictReader(f)
             for row in reader:
                 status = row.get("status", "matched").strip()
-                if status != "matched":
+                if status not in INCLUDED_STATUSES:
                     continue
                 subcat = row.get("subcategoria", "").strip()
-                importe_str = row.get("importe_item", row.get("importe", "")).strip()
-                fecha = row.get("fecha_extracto", row.get("fecha_pedido", "")).strip()
+                importe_str = (row.get("importe_item", "") or row.get("importe", "")).strip()
+                fecha = (row.get("fecha_extracto", "") or row.get("fecha_pedido", "")).strip()
                 if not subcat or not importe_str or len(fecha) < 4:
                     continue
                 try:
@@ -97,17 +136,53 @@ def load_enrichment_breakdown(enrichments_dir):
                     continue
                 year = fecha[:4]
                 breakdown[year][subcat] += amount
+                if status == "provisional":
+                    provisional_breakdown[year][subcat] += amount
                 item_name = row.get("item", "").strip()
                 source = row.get("source", "").strip()
                 if item_name:
-                    items[year][subcat].append([item_name, round(amount, 2), source])
+                    items[year][subcat].append([item_name, round(amount, 2), source, status])
     totals = {}
     for year, cats in breakdown.items():
         totals[year] = {cat: round(total, 2) for cat, total in sorted(cats.items())}
+    provisional_totals = {}
+    for year, cats in provisional_breakdown.items():
+        provisional_totals[year] = {cat: round(total, 2) for cat, total in sorted(cats.items())}
     items_out = {}
     for year, cats in items.items():
         items_out[year] = {cat: lst for cat, lst in sorted(cats.items())}
-    return totals, items_out
+    return totals, items_out, provisional_totals
+
+
+def _load_provisional_rows(enrichments_dir):
+    rows = []
+    if not os.path.isdir(enrichments_dir):
+        return rows
+    for fname in os.listdir(enrichments_dir):
+        if not fname.endswith(".csv"):
+            continue
+        path = os.path.join(enrichments_dir, fname)
+        with open(path, encoding="utf-8") as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                if row.get("status", "").strip() != "provisional":
+                    continue
+                subcat = row.get("subcategoria", "").strip()
+                importe_str = (row.get("importe_item", "") or row.get("importe", "")).strip()
+                fecha = (row.get("fecha_pedido", "")).strip()
+                if not subcat or not importe_str or len(fecha) < 7:
+                    continue
+                try:
+                    amount = abs(float(importe_str.replace(",", ".")))
+                except (ValueError, TypeError):
+                    continue
+                rows.append({
+                    "year": fecha[:4],
+                    "month": str(int(fecha[5:7])),
+                    "subcat": subcat,
+                    "amount": amount,
+                })
+    return rows
 
 
 def generate(workspace_path):
@@ -187,20 +262,6 @@ def generate(workspace_path):
         if importe < 0 and concepto:
             top_merchants_data[year][concepto] += abs(importe)
 
-    cat_totals_out = {}
-    for y in years:
-        cat_totals_out[y] = dict(cat_totals[y])
-
-    monthly_totals_out = {}
-    for y in years:
-        monthly_totals_out[y] = dict(monthly_totals[y])
-
-    monthly_by_cat_out = {}
-    for y in years:
-        monthly_by_cat_out[y] = {}
-        for m, cats in monthly_by_cat[y].items():
-            monthly_by_cat_out[y][m] = dict(cats)
-
     concepts_out = {}
     for y in years:
         concepts_out[y] = {}
@@ -214,9 +275,50 @@ def generate(workspace_path):
         merchants = sorted(top_merchants_data[y].items(), key=lambda x: -x[1])[:20]
         top_merchants_out[y] = [[name, round(amount, 2)] for name, amount in merchants]
 
-    enrichment_breakdown, enrichment_items = load_enrichment_breakdown(
-        os.path.join(workspace_path, "data", "enrichments")
-    )
+    enrichments_dir = os.path.join(workspace_path, "data", "enrichments")
+    enrichment_breakdown, enrichment_items, enrichment_provisional = load_enrichment_breakdown(enrichments_dir)
+    merchant_aliases_raw = load_merchant_aliases(enrichments_dir)
+
+    provisional_rows = _load_provisional_rows(enrichments_dir)
+    for prow in provisional_rows:
+        year = prow["year"]
+        month = prow["month"]
+        subcat = prow["subcat"]
+        amount = prow["amount"]
+        if year not in years_set:
+            years_set.add(year)
+            years = sorted(years_set)
+            summary[year] = {"ingresos": 0.0, "movimientos": 0, "sin_categoria": 0}
+        cat_totals[year][subcat] += amount
+        monthly_totals[year][month] += amount
+        monthly_by_cat[year][month][subcat] += amount
+
+    cat_totals_out = {}
+    for y in years:
+        cat_totals_out[y] = dict(cat_totals[y])
+    monthly_totals_out = {}
+    for y in years:
+        monthly_totals_out[y] = dict(monthly_totals[y])
+    monthly_by_cat_out = {}
+    for y in years:
+        monthly_by_cat_out[y] = {}
+        for m, cats in monthly_by_cat[y].items():
+            monthly_by_cat_out[y][m] = dict(cats)
+
+    merchant_aliases = {}
+    for row in all_rows:
+        fecha = row.get("fecha", "").strip()
+        concepto = row.get("concepto", "").strip()
+        importe_str = row.get("importe", "").strip()
+        if not fecha or not concepto or not importe_str:
+            continue
+        key = f"{fecha}|{importe_str}"
+        if key in merchant_aliases_raw:
+            alias = merchant_aliases_raw[key]
+            if concepto not in merchant_aliases:
+                merchant_aliases[concepto] = []
+            if alias not in merchant_aliases[concepto]:
+                merchant_aliases[concepto].append(alias)
 
     data = {
         "years": years,
@@ -230,7 +332,9 @@ def generate(workspace_path):
         "enrichment_patterns_map": enrichment_patterns_map,
         "concepts_by_cat": concepts_out,
         "enrichment_breakdown": enrichment_breakdown,
+        "enrichment_provisional": enrichment_provisional,
         "enrichment_items": enrichment_items,
+        "merchant_aliases": merchant_aliases,
         "insights": [],
         "alerts": [],
         "generated_at": datetime.now().strftime("%Y-%m-%d %H:%M"),

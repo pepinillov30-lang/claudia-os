@@ -88,6 +88,7 @@ python3 .claude/skills/claudia-finanzas/pipeline/generate.py <workspace>
 python3 .claude/skills/claudia-finanzas/pipeline/insights.py <workspace>
 python3 .claude/skills/claudia-finanzas/pipeline/enrich_products.py <workspace> <enrichment_csv>
 python3 .claude/skills/claudia-finanzas/pipeline/match_enrichments.py <workspace> <enrichment_csv>
+python3 .claude/skills/claudia-finanzas/pipeline/reconcile_enrichments.py <workspace>
 ```
 
 - `merge_extract.py` — mergea CSV normalizado con extractos existentes, dedup por (fecha,concepto,importe), output JSON con {new, duplicates, total, years_affected}
@@ -96,8 +97,9 @@ python3 .claude/skills/claudia-finanzas/pipeline/match_enrichments.py <workspace
 - `insights.py` — analiza data.json → añade campos insights y alerts
 - `enrich_products.py` — categoriza productos de enrichments contra `rules.yaml (sección `enrichment_patterns`)` (determinista, sin IA)
 - `match_enrichments.py` — cruza enrichments con extracto por fecha±5d + importe±0.02€, asigna status (matched/provisional/unmatched)
+- `reconcile_enrichments.py` — reconcilia enrichments provisionales tras importar nuevo extracto, reporta transiciones y unmatched para revisión
 
-El pipeline completo es: import (IA) → merge → categorize → generate → insights.
+El pipeline completo es: import (IA) → merge → reconcile → categorize → generate → insights.
 
 ## Comandos
 
@@ -152,7 +154,26 @@ source .claude/skills/claudia-finanzas/venv/bin/activate && python3 .claude/skil
 ```
 Dedup automático por (fecha, concepto, importe). Agrupa por año en `data/extractos/{año}.csv`.
 
-**Paso 5 — Pipeline:**
+**Paso 5 — Reconciliar enrichments provisionales:**
+```bash
+source .claude/skills/claudia-finanzas/venv/bin/activate && python3 .claude/skills/claudia-finanzas/pipeline/reconcile_enrichments.py <workspace>
+```
+Re-evalúa todos los enrichments `provisional` contra los extractos actualizados. Posibles transiciones:
+- `provisional` → `matched` — el extracto confirma el movimiento. Informar al usuario.
+- `provisional` → `unmatched` — el extracto cubre la fecha pero no hay match. Presentar lista al usuario con tres opciones por item:
+  1. **Vincular manualmente** — el usuario indica a qué movimiento del extracto corresponde
+  2. **Aprobar sin match** — mantener como gasto válido sin correspondencia bancaria (otra tarjeta, efectivo, etc.)
+  3. **Descartar** — eliminar el enrichment (error de entrada, duplicado, etc.)
+
+Para vincular manualmente: buscar movimientos cercanos en fecha (±10d) y mostrar candidatos. Si el usuario elige uno, actualizar `fecha_extracto` e `importe_total` en el enrichment y cambiar status a `matched`.
+
+Para aprobar sin match: cambiar status a `approved` (se trata como `matched` en analytics).
+
+Para descartar: eliminar las filas del enrichment CSV.
+
+Si no hay provisionales o no hay transiciones, saltar este paso silenciosamente.
+
+**Paso 6 — Pipeline:**
 
 Ejecutar categorize → generate → insights. Mostrar resumen: X movimientos nuevos, Y duplicados descartados, Z categorizados, W pendientes.
 
@@ -300,6 +321,7 @@ Flags especiales en rules.yaml:
   "cat_labels": {"alimentacion": "Alimentación", "suministros/luz": "Suministros / Luz", ...},
   "patterns_map": {"hipoteca": ["pattern1", "pattern2"], ...},
   "concepts_by_cat": {"2026": {"hipoteca": [["Concepto 1", 4, -3772.20], ...]}},
+  "enrichment_provisional": {"2026": {"alimentacion/cafe": 26.97}},
   "insights": [{"type": "interanual", "label": "📈 Vehículo", "text": "...", "direction": "up"}],
   "alerts": [{"icon": "⚠", "text": "..."}],
   "generated_at": "2026-05-22 16:26"
