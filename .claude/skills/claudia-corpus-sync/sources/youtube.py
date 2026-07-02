@@ -8,7 +8,7 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 
 CLAUDIA_ROOT = Path(__file__).resolve().parents[3].parent
-sys.path.insert(0, str(CLAUDIA_ROOT / '.claude' / 'skills' / 'yt-transcript'))
+sys.path.insert(0, str(CLAUDIA_ROOT / '.claude' / 'skills' / 'claudia-yt-transcript'))
 from extract_subtitles import process_video  # noqa: E402
 
 
@@ -88,11 +88,11 @@ def sync(config, workspace_root, do_sync):
         return {"processed": 0, "errors": 0, "missing": len(missing)}
 
     os.makedirs(corpus_dir, exist_ok=True)
-    browser = None if cookies_file else "chrome"
     processed = errors = 0
     for v in missing:
         result = process_video(v["url"], corpus_dir, lang=lang,
-                               cookies_file=cookies_file, cookies_from_browser=browser)
+                               cookies_file=cookies_file or None,
+                               cookies_from_browser=None)
         if result:
             processed += 1
         else:

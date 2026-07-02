@@ -136,6 +136,18 @@ function buildHealthSection(cfg) {
   if (!existsSync(healthDb)) return null;
 
   try {
+    // Sync sleep before querying (Fitbit data may arrive after briefing cron)
+    const syncVenv = join(CLAUDIA_ROOT, '.claude/skills/claudia-health/venv/bin/python3');
+    const syncScript = join(CLAUDIA_ROOT, '.claude/skills/claudia-health/sync.py');
+    try {
+      execSync(
+        `${syncVenv} "${syncScript}" --account sergi --metrics sleep`,
+        { timeout: 30000, encoding: 'utf8', env: { ...process.env } }
+      );
+    } catch (e) {
+      console.error('[briefing] Pre-sync sleep failed:', e.message);
+    }
+
     const yesterday = todayIsoInTz(new Date(now - 86400000), tz);
     const pyScript = join(CLAUDIA_ROOT, '.claude/skills/telegram-bot/src/health_briefing.py');
 

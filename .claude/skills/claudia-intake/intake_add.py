@@ -21,9 +21,11 @@ from intake_queue import add_item, promote_feed_items
 def main():
     parser = argparse.ArgumentParser(description="Intake Add CLI")
     parser.add_argument("--url", help="URL a encolar")
-    parser.add_argument("--source", default="manual", help="Origen: telegram, manual, notes")
+    parser.add_argument("--source", default="manual", help="Origen: telegram, manual, notes, mentor")
     parser.add_argument("--context", default=None, help="Contexto adicional")
     parser.add_argument("--title", default=None, help="Título si se conoce")
+    parser.add_argument("--author", default=None, help="Autor del contenido (para mentors)")
+    parser.add_argument("--pre-content", default=None, help="Contenido ya extraído (evita fetch)")
     parser.add_argument("--promote-feed", help="Promover items feed_new por índice (ej: 2,5,7)")
     args = parser.parse_args()
 
@@ -38,6 +40,8 @@ def main():
             source_detail=args.source,
             context=args.context,
             title=args.title,
+            author=args.author,
+            pre_content=args.pre_content,
         )
         if item:
             print(json.dumps({"status": "queued", "id": item["id"], "url": item["url"]}, ensure_ascii=False))

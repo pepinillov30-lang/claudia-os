@@ -76,7 +76,7 @@ def _append_item(item):
             fcntl.flock(f, fcntl.LOCK_UN)
 
 
-def add_item(url, source="manual", source_detail=None, context=None, status="new", title=None):
+def add_item(url, source="manual", source_detail=None, context=None, status="new", title=None, author=None, pre_content=None):
     """Añade un item a la cola. Devuelve el dict creado o None si es duplicado."""
     if is_duplicate(url):
         return None
@@ -92,6 +92,8 @@ def add_item(url, source="manual", source_detail=None, context=None, status="new
         "queued_at": queued_at,
         "processed_at": None,
         "context": context,
+        "author": author,
+        "pre_content": pre_content,
         "error": None,
     }
     _append_item(item)

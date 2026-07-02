@@ -32,6 +32,19 @@ bot.use((ctx, next) => {
 bot.command('start', (ctx) => ctx.reply(helpText()));
 bot.command('help', (ctx) => ctx.reply(helpText()));
 
+bot.command('facturas', async (ctx) => {
+  const prompt =
+    'Ejecuta la skill /claudia-holded en modo "procesar": escanea las facturas de proveedor ' +
+    'etiquetadas y SIN procesar (inbox.py pending) en las cuentas configuradas. Para cada una: ' +
+    'descarga el PDF (inbox.py download), extrae los datos (emisor FISCAL real, NIF, nº, fecha, ' +
+    'base, IVA, total, escenario) y pásalos a ingest.py --json (valida, deduplica y crea el ' +
+    'borrador con PDF adjunto). Según el status: created/duplicate → marca el correo procesado ' +
+    '(inbox.py mark); error (proveedor no encontrado / datos incompletos / sin contabilización) → ' +
+    'NO marques, y al terminar PREGÚNTAME aquí en el chat lo que falte. Responde con un resumen: ' +
+    'nuevas creadas, ya existentes y lo que necesita mi decisión.';
+  await handlePrompt(ctx, prompt);
+});
+
 bot.command('new', (ctx) => {
   clearSession(ctx.chat.id);
   ctx.reply('Nueva sesión. Contexto limpio.');
@@ -116,6 +129,29 @@ bot.on('text', async (ctx) => {
       }
     } catch (err) {
       await ctx.reply(`Error al procesar feeds: ${err.message.slice(0, 200)}`);
+    }
+    return;
+  }
+
+  // OAuth: detect localhost redirect URLs with code parameter (Google Health token renewal)
+  const oauthCodeMatch = text.match(/https?:\/\/localhost\S*[?&]code=([^&\s]+)/);
+  if (oauthCodeMatch) {
+    try {
+      const code = oauthCodeMatch[1];
+      const HEALTH_VENV = join(CLAUDIA_ROOT, '.claude/skills/claudia-health/venv/bin/python3');
+      const AUTH_SCRIPT = join(CLAUDIA_ROOT, '.claude/skills/claudia-health/auth_telegram.py');
+      const result = execSync(
+        `"${HEALTH_VENV}" "${AUTH_SCRIPT}" --exchange-code "${code}" --account sergi`,
+        { timeout: 15000, encoding: 'utf8' }
+      );
+      const parsed = JSON.parse(result);
+      if (parsed.status === 'success') {
+        await ctx.reply(`✅ ${parsed.message}. El sync se reanudará automáticamente.`);
+      } else {
+        await ctx.reply(`❌ ${parsed.error}`);
+      }
+    } catch (err) {
+      await ctx.reply(`Error procesando OAuth: ${err.message.slice(0, 300)}`);
     }
     return;
   }
@@ -214,6 +250,55 @@ bot.on('photo', async (ctx) => {
   }
 });
 
+// --- Documentos (facturas PDF → Holded) ---
+
+const INVOICE_INBOX = join(CLAUDIA_ROOT, 'user', 'workspaces', 'facturacion', 'inbox');
+
+bot.on('document', async (ctx) => {
+  const doc = ctx.message.document;
+  const caption = ctx.message.caption || '';
+  const name = doc.file_name || `factura_${Date.now()}.pdf`;
+  const isPdf = doc.mime_type === 'application/pdf' || /\.pdf$/i.test(name);
+
+  if (!isPdf) {
+    await ctx.reply('Por ahora solo proceso facturas en PDF.');
+    return;
+  }
+
+  if (!existsSync(INVOICE_INBOX)) mkdirSync(INVOICE_INBOX, { recursive: true });
+  const safe = name.replace(/[^\w.\-]/g, '_');
+  const pdfPath = join(INVOICE_INBOX, `${Date.now()}__${safe}`);
+  const waiting = await ctx.reply('Factura recibida. Procesando y subiendo a Holded...');
+
+  try {
+    await downloadFile(bot, doc.file_id, pdfPath);
+    const prompt =
+      `El usuario ha enviado un DOCUMENTO PDF por Telegram, guardado en ${pdfPath}.\n` +
+      `PASO 0 — CLASIFICA el documento leyendo el PDF, y enruta:\n` +
+      `- FACTURA DE COMPRA de un proveedor → procédela con /claudia-holded (pasos abajo).\n` +
+      `- EXTRACTO BANCARIO o TICKET de compra → es de /claudia-finanzas, NO de Holded: dilo y no subas nada a Holded (procesa en finanzas solo si el usuario lo pide).\n` +
+      `- Otro tipo, o dudas de qué es → NO subas nada; pregunta al usuario qué quiere hacer.\n` +
+      `Solo si es una factura de compra de proveedor, sigue con /claudia-holded (modo ingest de PDF suelto):\n` +
+      `1) Extrae del PDF: emisor (razón social FISCAL real — ojo marca vs emisor), NIF/CIF, nº factura, fecha (YYYY-MM-DD), base, tipo y cuota de IVA, total, escenario de IVA (nacional/intracom/reverse_charge/...).\n` +
+      `2) Escribe esos campos a un JSON (supplier_name, nif, number, date, base, total, iva_rate, tax_scenario, y pdf="${pdfPath}") y pásalo a ingest.py:\n` +
+      `   python3 .claude/skills/claudia-holded/ingest.py --json <fichero.json>\n` +
+      `   ingest.py VALIDA, deduplica y crea el BORRADOR con el PDF adjunto de forma determinista. NO construyas tú la llamada a la API ni uses holded.py create a mano.\n` +
+      `3) Reporta según el "status" que devuelva ingest.py:\n` +
+      `   - created → di proveedor, nº, total, "borrador creado".\n` +
+      `   - duplicate → di que ya existía, no dupliques.\n` +
+      `   - error (PROVEEDOR_NO_ENCONTRADO / DATOS_INCOMPLETOS / SIN_CONTABILIZACION) → explícaselo al usuario y pregunta lo que falte (contacto, cuenta, IVA...). NO subas nada.\n` +
+      `Responde en 3-5 líneas: tipo de documento, proveedor, nº, total y resultado.` +
+      (caption ? `\nNota del usuario (tenla en cuenta para clasificar y decidir): ${caption}` : '');
+    await handlePrompt(ctx, prompt);
+  } catch (err) {
+    console.error('[DOC ERR]', err.message);
+    await ctx.telegram.editMessageText(
+      ctx.chat.id, waiting.message_id, null,
+      `Error con la factura: ${err.message}`
+    );
+  }
+});
+
 // --- Handler principal ---
 
 async function handlePrompt(ctx, prompt) {
@@ -282,6 +367,8 @@ function helpText() {
     '/new — Nueva sesión (olvida contexto)\n' +
     '/project <nombre> — Cambiar workspace\n' +
     '/status — Estado del bot\n' +
+    '/facturas — Procesar facturas de proveedor pendientes (Holded)\n' +
+    'Enviar un PDF — subir esa factura a Holded\n' +
     '/cancel — Cancelar tarea en ejecución\n' +
     '/help — Esta ayuda\n\n' +
     `Workspaces: ${Object.keys(PROJECTS).join(', ')}`
@@ -373,7 +460,13 @@ bot.catch((err) => {
 
 // --- Arranque ---
 
-bot.launch({ dropPendingUpdates: false });
+bot.launch({ dropPendingUpdates: false }).catch((err) => {
+  // Fallo al ARRANCAR el polling (ej. EAI_AGAIN tras un reinicio del server,
+  // cuando PM2 levanta el bot antes de que el DNS esté listo). Salimos para
+  // que PM2 reintente (restart_delay) hasta que la red esté disponible.
+  console.error(`[BOT LAUNCH FAIL] ${err.code || err.message} — saliendo para que PM2 reintente`);
+  process.exit(1);
+});
 console.log('Claudia OS — Bot de Telegram iniciado');
 
 process.once('SIGINT', () => bot.stop('SIGINT'));

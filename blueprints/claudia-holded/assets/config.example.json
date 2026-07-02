@@ -1,0 +1,34 @@
+{
+  "_comment": "Copia este fichero a user/config/holded.json y rellena tus valores. La API key va en user/credentials/.env como HOLDED_API_KEY (nunca aquí).",
+
+  "gmail": {
+    "accounts": ["<alias-cuenta-1>", "<alias-cuenta-2>"],
+    "source_label": "Facturas",
+    "processed_label": "Procesada"
+  },
+
+  "holded": {
+    "api_base": "https://api.holded.com/api/v2",
+    "create_as_draft": true
+  },
+
+  "dedup": {
+    "amount_tolerance": 0.02
+  },
+
+  "notifications": {
+    "channel": "telegram",
+    "email_to": ""
+  },
+
+  "queue_file": "user/workspaces/facturacion/pending.json",
+
+  "supplier_overrides": {
+    "_comment": "Opcional. Clave = NIF/CIF del proveedor (campo `code` en Holded). Sobrescribe la contabilización derivada del histórico. Si un proveedor no está aquí, la skill calca su última compra.",
+    "<NIF-EJEMPLO>": {
+      "contact_id": "<id-contacto-holded>",
+      "account": "<id-cuenta-gasto>",
+      "tax": "p_iva_21"
+    }
+  }
+}

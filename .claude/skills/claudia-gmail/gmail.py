@@ -113,23 +113,98 @@ def parse_message(msg, full=False):
     return result
 
 
+def _html_to_text(html):
+    """Convert HTML to plain text using stdlib html.parser."""
+    from html.parser import HTMLParser
+    import html as html_module
+
+    class _TextExtractor(HTMLParser):
+        SKIP_TAGS = {'style', 'script', 'head'}
+        BLOCK_TAGS = {'p', 'br', 'div', 'tr', 'li', 'h1', 'h2', 'h3', 'h4', 'blockquote'}
+
+        def __init__(self):
+            super().__init__()
+            self.parts = []
+            self._skip = 0
+
+        def handle_starttag(self, tag, attrs):
+            if tag in self.SKIP_TAGS:
+                self._skip += 1
+            if tag in self.BLOCK_TAGS:
+                self.parts.append('\n')
+
+        def handle_endtag(self, tag):
+            if tag in self.SKIP_TAGS:
+                self._skip = max(0, self._skip - 1)
+            if tag in self.BLOCK_TAGS:
+                self.parts.append('\n')
+
+        def handle_data(self, data):
+            if not self._skip:
+                self.parts.append(data)
+
+    extractor = _TextExtractor()
+    extractor.feed(html_module.unescape(html))
+    text = ''.join(extractor.parts)
+    # Strip invisible chars (U+200C zero-width non-joiner and similar)
+    text = re.sub(r'[​‌‍⁠﻿​-‏﻿]+', '', text)
+    # Drop whitespace-only lines, then collapse multiple blanks to one
+    lines = [l.rstrip() for l in text.splitlines()]
+    lines = [l for l in lines if l.strip()]
+    text = '\n'.join(lines)
+    text = re.sub(r'\n{3,}', '\n\n', text)
+    return text.strip()
+
+
+def _is_clean_plaintext(text):
+    """Return True if text/plain looks like real content, not HTML noise."""
+    invisible = len(re.findall(r'[​‌‍]', text))
+    if invisible > 20:
+        return False
+    if re.search(r'font-family|mso-line-height|@media|\.ExternalClass', text):
+        return False
+    return True
+
+
 def extract_body(payload):
-    """Extrae el texto del cuerpo del mensaje (plain text preferido)."""
-    if payload.get('mimeType') == 'text/plain':
+    """Extrae el texto del cuerpo del mensaje. Prefiere text/plain limpio; si no, parsea text/html."""
+    mime = payload.get('mimeType', '')
+
+    if mime == 'text/plain':
         data = payload.get('body', {}).get('data', '')
         if data:
-            return base64.urlsafe_b64decode(data).decode('utf-8', errors='replace')
+            text = base64.urlsafe_b64decode(data).decode('utf-8', errors='replace')
+            if _is_clean_plaintext(text):
+                return text
 
-    if payload.get('mimeType') == 'text/html':
+    if mime == 'text/html':
         data = payload.get('body', {}).get('data', '')
         if data:
             html = base64.urlsafe_b64decode(data).decode('utf-8', errors='replace')
-            return re.sub(r'<[^>]+>', '', html).strip()
+            return _html_to_text(html)
+
+    # For multipart, try html first (better quality), then plain
+    html_part = plain_part = None
+    for part in payload.get('parts', []):
+        if part.get('mimeType') == 'text/html':
+            html_part = part
+        elif part.get('mimeType') == 'text/plain':
+            plain_part = part
+
+    if html_part:
+        result = extract_body(html_part)
+        if result:
+            return result
+    if plain_part:
+        result = extract_body(plain_part)
+        if result:
+            return result
 
     for part in payload.get('parts', []):
-        body = extract_body(part)
-        if body:
-            return body
+        if part.get('mimeType') not in ('text/html', 'text/plain'):
+            body = extract_body(part)
+            if body:
+                return body
 
     return ''
 

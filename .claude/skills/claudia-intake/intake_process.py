@@ -323,10 +323,26 @@ def process_queue(max_items=None, dry_run=False):
     print("Fase 1: Pre-extraccion de contenido...")
     extractions = {}
     for item in items:
-        print(f"  Extrayendo: {item['url'][:60]}...")
         update_status(item["id"], "processing")
+
+        # Si el item trae contenido pre-extraído (ej: mentors), saltamos el fetch
+        if item.get("pre_content"):
+            print(f"  Pre-extraído: {item['url'][:60]}...")
+            extractions[item["id"]] = {
+                "url": item["url"],
+                "text": item["pre_content"],
+                "title": item.get("title") or "",
+                "author": item.get("author") or "Desconocido",
+                "content_type": "newsletter",
+            }
+            continue
+
+        print(f"  Extrayendo: {item['url'][:60]}...")
         try:
             result = extract_content(item["url"])
+            # Si el item tiene author explícito (de mentors), priorizarlo
+            if item.get("author") and not result.get("author"):
+                result["author"] = item["author"]
             if result.get("text"):
                 extractions[item["id"]] = result
                 if result.get("title") and not item.get("title"):
