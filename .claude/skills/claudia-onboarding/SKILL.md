@@ -387,6 +387,15 @@ No inventes tareas dentro — el usuario las irá añadiendo.
 
    **Si `backup = none`:** no hagas commit, no menciones git.
 
+5. **Ciclo de sueño (memoria nocturna):** el dream cycle (`dream_cycle.py`) comprime cada noche la memoria episódica y promueve las lecciones recurrentes a `user/memory/semantic/LESSONS.md`. Sin él, la memoria episódica se acumula sin consolidarse. Déjalo programado según el `runtime`:
+
+   - Si `runtime = server` → ofrécelo y, con permiso, instálalo directamente. Ejecuta `pwd` para la ruta real:
+     ```bash
+     (crontab -l 2>/dev/null | grep -q dream_cycle.py) || (crontab -l 2>/dev/null; echo "0 3 * * * cd <RUTA_REAL> && python3 .claude/skills/memory-search/dream_cycle.py >> <RUTA_REAL>/.claude/logs/dream-cycle.log 2>&1") | crontab -
+     ```
+   - Si `runtime = local` → no instales cron (a las 3am el equipo está apagado y el cron no recupera trabajos perdidos). Explica la limitación y ofrece alternativa:
+     > La consolidación nocturna de memoria no puede ir por cron porque tu equipo no está siempre encendido. Puedo dejarte una tarea programada de Claude Code a una hora en la que sueles tenerlo encendido, o ejecutarla yo a demanda. Si no, al inicio de sesión puedo revisar los aprendizajes y consolidarlos a mano.
+
 ---
 
 ## Reglas

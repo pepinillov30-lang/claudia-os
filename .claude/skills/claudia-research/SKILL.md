@@ -12,7 +12,7 @@ Eres Claudia ejecutando una investigación. Analiza los argumentos para determin
 > **Personalización:** antes de ejecutar, lee `user/behavior.md` en este directorio. Si tiene contenido, aplícalo como ajustes sobre el comportamiento de esta skill — en caso de conflicto con lo definido aquí, prevalece lo del usuario.
 
 **Parsing de argumentos:**
-- `$ARGUMENTS` contiene el nivel (opcional) y el tema
+- Los argumentos de la petición contienen el nivel (opcional) y el tema. Si el host los inyecta explícitamente en la invocación, llegan en `$ARGUMENTS`
 - Si la primera palabra es `quick`, `standard` o `deep`, úsala como nivel
 - Si no se especifica nivel, elige automáticamente:
   - Dato puntual o pregunta simple → quick
@@ -26,8 +26,8 @@ Eres Claudia ejecutando una investigación. Analiza los argumentos para determin
 **Cuándo:** dato puntual, verificación rápida, pregunta con respuesta concreta.
 
 **Ejecución:**
-1. Usa `WebSearch` para buscar la información
-2. Si necesitas profundizar en un resultado, usa `WebFetch` para leer la fuente
+1. Usa la herramienta de búsqueda web disponible para buscar la información
+2. Si necesitas profundizar en un resultado, usa la herramienta de lectura de URLs disponible para leer la fuente
 3. Verifica los datos cruzando al menos 2 fuentes cuando sea posible
 
 **Output:** respuesta directa en la conversación. No guardar fichero.
@@ -52,20 +52,20 @@ Eres Claudia ejecutando una investigación. Analiza los argumentos para determin
 1. Lanza **3 agentes en paralelo** usando la tool `Agent`, cada uno con un rol distinto:
 
    **Agente Factual:**
-   > Investiga [TEMA]. Céntrate en datos verificables: cifras, fechas, hechos, estadísticas, fuentes primarias. Usa WebSearch y WebFetch. Para cada dato importante, indica la fuente. No interpretes ni opines — solo hechos.
+   > Investiga [TEMA]. Céntrate en datos verificables: cifras, fechas, hechos, estadísticas, fuentes primarias. Usa las herramientas de búsqueda web y lectura de URLs disponibles. Para cada dato importante, indica la fuente. No interpretes ni opines — solo hechos.
 
    **Agente Análisis:**
-   > Investiga [TEMA]. Céntrate en el análisis: tendencias, causas, implicaciones, contexto histórico, hacia dónde va esto. Usa WebSearch y WebFetch. Busca fuentes que ofrezcan interpretación experta, no solo datos.
+   > Investiga [TEMA]. Céntrate en el análisis: tendencias, causas, implicaciones, contexto histórico, hacia dónde va esto. Usa las herramientas de búsqueda web y lectura de URLs disponibles. Busca fuentes que ofrezcan interpretación experta, no solo datos.
 
    **Agente Contrarian:**
-   > Investiga [TEMA]. Tu trabajo es encontrar lo que otros ignoran: críticas, riesgos, perspectivas minoritarias, argumentos en contra del consenso, fracasos relacionados. Usa WebSearch y WebFetch. Busca fuentes que desafíen la narrativa dominante.
+   > Investiga [TEMA]. Tu trabajo es encontrar lo que otros ignoran: críticas, riesgos, perspectivas minoritarias, argumentos en contra del consenso, fracasos relacionados. Usa las herramientas de búsqueda web y lectura de URLs disponibles. Busca fuentes que desafíen la narrativa dominante.
 
 2. Cuando los 3 agentes devuelvan resultados, **sintetiza**:
    - Identifica puntos de acuerdo entre los 3
    - Destaca las tensiones o contradicciones
    - Señala lo que solo encontró un agente (hallazgos únicos)
 
-3. **Verifica URLs**: para cada URL que incluyas en el output, confirma que es accesible con `WebFetch`. Elimina las que fallen.
+3. **Verifica URLs**: para cada URL que incluyas en el output, confirma que es accesible con la herramienta de lectura de URLs disponible. Elimina las que fallen.
 
 4. **Identifica fuentes clave** (máximo 2): si durante la investigación aparece una pieza especialmente valiosa que merece extracción profunda independiente, ejecuta `/claudia-wisdom` sobre ella. El fichero resultante irá a `user/vault/claudia-wisdom/` con `origin: research/{nombre-del-fichero}.md`.
 

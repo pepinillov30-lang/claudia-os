@@ -106,10 +106,10 @@ if not GOOGLE_API_KEY and not OPENAI_API_KEY:
 
 # Modelos disponibles
 MODELS = {
-    # Google: Gemini (generateContent) — solo 1:1, 1024x1024
+    # Google: Gemini (generateContent) — soporta aspect ratios vía imageConfig
     "flash":        {"id": "gemini-2.5-flash-image",         "type": "gemini", "provider": "google", "price": "gratis"},
-    "nano2":        {"id": "gemini-3.1-flash-image-preview",  "type": "gemini", "provider": "google", "price": "~$0.045/img"},
-    "pro":          {"id": "gemini-3-pro-image-preview",      "type": "gemini", "provider": "google", "price": "~$0.045/img"},
+    "nano2":        {"id": "gemini-3.1-flash-image",          "type": "gemini", "provider": "google", "price": "~$0.045/img"},
+    "pro":          {"id": "gemini-3-pro-image",              "type": "gemini", "provider": "google", "price": "~$0.045/img"},
     # Google: Imagen 4 (predict) — soporta aspect ratios
     "imagen-fast":  {"id": "imagen-4.0-fast-generate-001",    "type": "imagen", "provider": "google", "price": "$0.02/img"},
     "imagen":       {"id": "imagen-4.0-generate-001",         "type": "imagen", "provider": "google", "price": "$0.04/img"},
@@ -195,6 +195,8 @@ if USER_STYLES_FILE.exists():
 def generate_gemini(model_id: str, prompt: str, aspect_ratio: str = "1:1") -> bytes:
     url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_id}:generateContent?key={GOOGLE_API_KEY}"
     gen_config = {"responseModalities": ["TEXT", "IMAGE"]}
+    if aspect_ratio and aspect_ratio != "1:1":
+        gen_config["imageConfig"] = {"aspectRatio": aspect_ratio}
     payload = {
         "contents": [{"parts": [{"text": prompt}]}],
         "generationConfig": gen_config,
@@ -269,8 +271,6 @@ def resolve_model(model_arg: str | None, size: str) -> dict:
             print(f"Error: modelo '{model_arg}' no reconocido. Opciones: {', '.join(MODELS.keys())}", file=sys.stderr)
             sys.exit(1)
         model = MODELS[model_arg]
-        if model["type"] == "gemini" and size != "1:1":
-            print(f"Aviso: {model_arg} solo genera 1:1 (1024x1024). Ignorando --size {size}.", file=sys.stderr)
         if model["provider"] == "google" and not GOOGLE_API_KEY:
             print(f"Error: {model_arg} requiere GOOGLE_AI_API_KEY.", file=sys.stderr)
             sys.exit(1)
@@ -280,7 +280,7 @@ def resolve_model(model_arg: str | None, size: str) -> dict:
         return model
     # Auto: modelo gratuito (flash) para 1:1, imagen-fast para otros ratios
     if GOOGLE_API_KEY:
-        return MODELS["flash"] if size == "1:1" else MODELS["imagen-fast"]
+        return MODELS["flash"] if size == "1:1" else MODELS["pro"]
     return MODELS["openai-low"]
 
 

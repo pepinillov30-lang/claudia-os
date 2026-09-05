@@ -251,11 +251,77 @@ def action_search(service, query, max_results=20):
     print(json.dumps({'messages': items, 'count': len(items), 'query': query}, ensure_ascii=False))
 
 
-def action_draft(service, to, subject, body, reply_to=None, thread_id=None):
+def get_send_as(service):
+    """Direcciones 'Enviar como' de la cuenta.
+
+    Devuelve None si el token no tiene scope para leer ajustes (gmail.settings.basic).
+    En ese caso no se puede validar el remitente, pero sí fijarlo.
+    """
+    try:
+        res = service.users().settings().sendAs().list(userId='me').execute()
+    except HttpError as e:
+        if e.resp.status in (401, 403):
+            return None
+        raise
+    return [{
+        'email': a.get('sendAsEmail', ''),
+        'nombre': a.get('displayName', ''),
+        'predeterminada': a.get('isDefault', False),
+        'principal': a.get('isPrimary', False),
+        # Los alias verificados vienen como 'accepted'. La cuenta principal no trae el campo.
+        'verificada': a.get('verificationStatus', 'accepted') in ('accepted', ''),
+    } for a in res.get('sendAs', [])]
+
+
+def apply_from(mime, service, from_addr):
+    """Fija la cabecera From. Valida contra los alias verificados si el scope lo permite.
+
+    Sin --from, Gmail usa la dirección predeterminada de 'Enviar como' de la cuenta.
+    """
+    if not from_addr:
+        return '(predeterminada de la cuenta)'
+
+    match = re.search(r'<([^>]+)>', from_addr)
+    email = (match.group(1) if match else from_addr).strip().lower()
+
+    aliases = get_send_as(service)
+    if aliases is None:
+        # Sin scope de ajustes no se puede comprobar. Gmail rechazará el envío si no vale.
+        mime['from'] = from_addr
+        return from_addr + ' (sin verificar: falta scope gmail.settings.basic)'
+
+    usables = [a['email'].lower() for a in aliases if a['verificada'] or a['principal']]
+    if email not in usables:
+        print(json.dumps({
+            'error': f"'{email}' no es una dirección 'Enviar como' verificada en esta cuenta",
+            'disponibles': usables,
+            'ayuda': 'Gmail → Configuración → Cuentas e importación → Enviar como',
+        }, ensure_ascii=False))
+        sys.exit(1)
+
+    mime['from'] = from_addr
+    return from_addr
+
+
+def action_sendas(service):
+    """Lista las direcciones desde las que puede enviar esta cuenta."""
+    aliases = get_send_as(service)
+    if aliases is None:
+        print(json.dumps({
+            'error': 'el token de esta cuenta no tiene scope para leer ajustes',
+            'scope_necesario': 'https://www.googleapis.com/auth/gmail.settings.basic',
+            'ayuda': 'Reautoriza la cuenta con auth.py para poder listar y validar remitentes',
+        }, ensure_ascii=False))
+        sys.exit(1)
+    print(json.dumps({'send_as': aliases}, ensure_ascii=False))
+
+
+def action_draft(service, to, subject, body, reply_to=None, thread_id=None, from_addr=None):
     """Crea un borrador. Nunca envía."""
     mime = MIMEText(body)
     mime['to'] = to
     mime['subject'] = subject
+    remitente = apply_from(mime, service, from_addr)
     if reply_to:
         mime['In-Reply-To'] = reply_to
         mime['References'] = reply_to
@@ -271,6 +337,7 @@ def action_draft(service, to, subject, body, reply_to=None, thread_id=None):
 
     print(json.dumps({
         'draft_id': draft['id'],
+        'from': remitente,
         'to': to,
         'subject': subject,
         'thread_id': thread_id or '',
@@ -278,7 +345,7 @@ def action_draft(service, to, subject, body, reply_to=None, thread_id=None):
     }, ensure_ascii=False))
 
 
-def action_send(service, to, subject, body, html_body=None, reply_to=None, thread_id=None):
+def action_send(service, to, subject, body, html_body=None, reply_to=None, thread_id=None, from_addr=None):
     """Envía un correo. Soporta HTML opcional."""
     if html_body:
         mime = MIMEMultipart('alternative')
@@ -288,6 +355,7 @@ def action_send(service, to, subject, body, html_body=None, reply_to=None, threa
         mime = MIMEText(body)
     mime['to'] = to
     mime['subject'] = subject
+    remitente = apply_from(mime, service, from_addr)
     if reply_to:
         mime['In-Reply-To'] = reply_to
         mime['References'] = reply_to
@@ -300,6 +368,7 @@ def action_send(service, to, subject, body, html_body=None, reply_to=None, threa
     sent = service.users().messages().send(userId='me', body=message).execute()
     print(json.dumps({
         'message_id': sent['id'],
+        'from': remitente,
         'to': to,
         'subject': subject,
         'status': 'enviado',
@@ -335,7 +404,8 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--account', required=False, help='Nombre de la cuenta (ej: personal)')
     parser.add_argument('--action', required=True,
-                        choices=['list', 'read', 'search', 'draft', 'send', 'archive', 'label', 'accounts'])
+                        choices=['list', 'read', 'search', 'draft', 'send', 'archive', 'label',
+                                 'accounts', 'sendas'])
     parser.add_argument('--max', type=int, default=20)
     parser.add_argument('--unread', action='store_true')
     parser.add_argument('--id', help='ID del mensaje')
@@ -347,6 +417,9 @@ def main():
     parser.add_argument('--thread-id', help='Thread ID para vincular el borrador al hilo')
     parser.add_argument('--html-body', help='Cuerpo HTML del correo (para send)')
     parser.add_argument('--label', help='Nombre de la etiqueta')
+    parser.add_argument('--from', dest='from_addr',
+                        help='Remitente ("Nombre <a@b.com>" o "a@b.com"). Debe ser una dirección '
+                             '"Enviar como" verificada. Sin esto se usa la predeterminada de la cuenta.')
     args = parser.parse_args()
 
     if args.action == 'accounts':
@@ -360,7 +433,9 @@ def main():
     try:
         service = get_service(args.account)
 
-        if args.action == 'list':
+        if args.action == 'sendas':
+            action_sendas(service)
+        elif args.action == 'list':
             action_list(service, args.max, args.unread)
         elif args.action == 'read':
             if not args.id:
@@ -376,13 +451,15 @@ def main():
             if not all([args.to, args.subject, args.body]):
                 print(json.dumps({'error': '--to, --subject y --body son obligatorios para draft'}))
                 sys.exit(1)
-            action_draft(service, args.to, args.subject, args.body, args.reply_to, args.thread_id)
+            action_draft(service, args.to, args.subject, args.body, args.reply_to, args.thread_id,
+                         from_addr=args.from_addr)
         elif args.action == 'send':
             if not all([args.to, args.subject, args.body]):
                 print(json.dumps({'error': '--to, --subject y --body son obligatorios para send'}))
                 sys.exit(1)
             action_send(service, args.to, args.subject, args.body,
-                        html_body=args.html_body, reply_to=args.reply_to, thread_id=args.thread_id)
+                        html_body=args.html_body, reply_to=args.reply_to, thread_id=args.thread_id,
+                        from_addr=args.from_addr)
         elif args.action == 'archive':
             if not args.id:
                 print(json.dumps({'error': '--id es obligatorio para archive'}))

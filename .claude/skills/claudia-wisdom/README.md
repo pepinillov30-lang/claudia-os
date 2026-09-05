@@ -46,8 +46,8 @@ Si envias una URL al pipeline de intake (Telegram o `/intake`), el procesamiento
 |------|---------|---------------------|
 | Video YouTube | `youtube.com/watch?v=...` | Extrae subtitulos via `claudia-yt-transcript` |
 | Tweet/Thread | `x.com/.../status/...` | FxTwitter API via `claudia-scrape` |
-| Articulo web | Cualquier URL de blog/medio | WebFetch via `claudia-scrape` |
-| Newsletter | Substack, Revue, etc. | WebFetch via `claudia-scrape` |
+| Articulo web | Cualquier URL de blog/medio | lectura de URL via `claudia-scrape` |
+| Newsletter | Substack, Revue, etc. | lectura de URL via `claudia-scrape` |
 | Podcast | Spotify, Apple, iVoox | Transcripcion si disponible; si no, avisa |
 | Texto directo | Texto pegado sin URL | Lo usa tal cual |
 | PDF/documento | Ruta local a fichero | Lee el fichero directamente |

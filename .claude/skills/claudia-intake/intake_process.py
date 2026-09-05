@@ -16,7 +16,7 @@ import os
 import re
 import subprocess
 import sys
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent.parent
@@ -27,6 +27,7 @@ from intake_queue import get_items, update_status, get_stats, _now_iso
 from intake_extract import extract_content
 
 BATCH_SIZE = 5  # Max items por llamada a Claude
+STUCK_AFTER_HOURS = 2  # Antigüedad tras la que un item 'processing' se da por abandonado
 
 TRANSIENT_ERROR_PATTERNS = [
     "no such file or directory",
@@ -290,6 +291,58 @@ def _save_wisdom_file(item_id, wisdom, extraction, today):
 
 
 
+def _vault_sources():
+    """URLs ya en el vault, leidas del campo `source:` del frontmatter."""
+    sources = set()
+    if not VAULT_WISDOM.exists():
+        return sources
+    for f in VAULT_WISDOM.glob("*.md"):
+        try:
+            with f.open(encoding="utf-8") as fh:
+                for i, line in enumerate(fh):
+                    if i > 20:
+                        break
+                    if line.startswith("source:"):
+                        sources.add(line.split(":", 1)[1].strip().strip('"').strip("'"))
+                        break
+        except Exception:
+            continue
+    return sources
+
+
+def _rescue_stuck(max_age_hours=STUCK_AFTER_HOURS):
+    """Rescata items abandonados en 'processing' por una ejecucion que murio a media.
+
+    No se pueden reencolar a ciegas: la ejecucion pudo escribir ya el fichero en el
+    vault antes de caer, y reprocesarlos genera duplicados con otro slug. Se comprueba
+    el `source:` del vault antes de decidir. Devuelve (reencolados, cerrados).
+    """
+    stuck = get_items(status="processing")
+    if not stuck:
+        return 0, 0
+    cutoff = datetime.now(timezone.utc) - timedelta(hours=max_age_hours)
+    sources = None
+    rescued = closed = 0
+    for item in stuck:
+        try:
+            queued = datetime.fromisoformat(item["queued_at"])
+        except Exception:
+            continue
+        if queued.tzinfo is None:
+            queued = queued.replace(tzinfo=timezone.utc)
+        if queued > cutoff:
+            continue  # puede ser una ejecucion viva ahora mismo
+        if sources is None:
+            sources = _vault_sources()
+        if item.get("url") in sources:
+            update_status(item["id"], "processed", processed_at=_now_iso())
+            closed += 1
+        else:
+            update_status(item["id"], "new", error=None)
+            rescued += 1
+    return rescued, closed
+
+
 def process_queue(max_items=None, dry_run=False):
     """Procesa items 'new' de la cola."""
     _load_env()
@@ -303,6 +356,11 @@ def process_queue(max_items=None, dry_run=False):
             retried += 1
     if retried:
         print(f"Auto-retry: {retried} items con errores transitorios reseteados\n")
+
+    # Rescate de items abandonados en 'processing' (ejecucion muerta a media)
+    rescued, closed = _rescue_stuck()
+    if rescued or closed:
+        print(f"Rescate: {rescued} reencolados, {closed} ya estaban en el vault\n")
 
     items = get_items(status="new")
     if not items:

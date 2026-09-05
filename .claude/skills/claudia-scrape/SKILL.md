@@ -16,7 +16,9 @@ Skill-librería que extrae contenido de URLs. Usada por `/claudia-wisdom` y `/cl
 
 ## Paso 1 — Detectar tipo de URL y extraer
 
-Analiza `$ARGUMENTS` para identificar el tipo de fuente y aplicar el handler apropiado:
+**Argumentos:** toma el tema y las opciones de la petición del usuario. Si el host los inyecta explícitamente en la invocación, llegan en `$ARGUMENTS`.
+
+Analiza esos argumentos para identificar el tipo de fuente y aplicar el handler apropiado:
 
 | Señal | Tipo | Handler |
 |-------|------|---------|
@@ -163,15 +165,16 @@ El script genera un fichero `.md` con el mismo formato que `claudia-yt-transcrip
 
 Para URLs que no son Twitter ni YouTube, escalación progresiva:
 
-### Tier 1 — WebFetch (por defecto)
+### Tier 1 — lectura directa de URL (por defecto)
 ```
-WebFetch(url, "Extrae el contenido principal del artículo en markdown limpio. Ignora navegación, sidebars, ads y footers.")
+Pide a la herramienta de lectura de URLs disponible: "Extrae el contenido principal del artículo
+en markdown limpio. Ignora navegación, sidebars, ads y footers."
 ```
 
-Si WebFetch devuelve contenido útil → done.
+Si devuelve contenido útil → done.
 
 ### Tier 2 — curl con headers de navegador
-Si WebFetch falla (403, contenido vacío, bot detection):
+Si falla (403, contenido vacío, bot detection):
 
 ```bash
 curl -s -L \

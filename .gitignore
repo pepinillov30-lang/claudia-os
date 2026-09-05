@@ -60,3 +60,10 @@ user/workspaces/*/yt/animations/public/*.mov
 # Entornos virtuales de Python (nunca en git)
 .venv/
 venv/
+
+# Memoria/estado de Claude Code por proyecto (nunca en git)
+.claude/projects/
+
+# Ficheros de audio/vídeo intermedios de transcripción (pesados y regenerables)
+*.wav
+user/workspaces/*/yt/transcripciones/*.mp4

@@ -126,7 +126,7 @@ Copiar el fichero original (sin modificar) a `data/extractos_raw/` con nombre de
       print('\t'.join(str(c) if c is not None else '' for c in row))
   " <ruta_fichero>
   ```
-- `.csv`/`.txt` → leer con Read tool. Si hay problemas de encoding (caracteres rotos), convertir primero: `iconv -f ISO-8859-1 -t UTF-8 <fichero>`
+- `.csv`/`.txt` → leer directamente. Si hay problemas de encoding (caracteres rotos), convertir primero: `iconv -f ISO-8859-1 -t UTF-8 <fichero>`
 - Texto inline → el usuario lo pega directamente en el chat, Claude lo lee del mensaje
 
 **Paso 2 — Normalizar (IA):**
@@ -222,8 +222,8 @@ fecha_pedido,fecha_extracto,importe_total,importe_item,subcategoria,item,source,
 **Flujo:**
 
 **Paso 1 — Leer la entrada:**
-- Imagen (ticket) → leer con Read tool (Claude multimodal la interpreta directamente)
-- CSV/texto → leer con Read tool o inline del chat
+- Imagen (ticket) → leer directamente con la capacidad de lectura de ficheros del host (los modelos multimodales la interpretan sin conversión previa)
+- CSV/texto → leer directamente o inline del chat
 - Las subcategorías DEBEN usar claves de rules.yaml (e.g. `ninos/ropa_calzado`, NO `niños/ropa`)
 
 **Paso 2 — Normalizar (IA):**

@@ -14,7 +14,7 @@ Eres Claudia ejecutando un modo de razonamiento extendido. Analiza los argumento
 Inspirado en el framework Thinking Modes de Daniel Miessler (PAI, MIT License).
 
 **Parsing de argumentos:**
-- `$ARGUMENTS` contiene el modo (obligatorio) y el tema/pregunta/plan
+- Los argumentos de la petición contienen el modo (obligatorio) y el tema/pregunta/plan. Si el host los inyecta explícitamente en la invocación, llegan en `$ARGUMENTS`
 - El modo es la primera palabra: `council`, `redteam` o `firstprinciples`
 - Si no se especifica modo o no se reconoce, aplica el criterio de auto-selección
 
@@ -60,7 +60,7 @@ Cómo anunciarlo: *"Esto parece algo que merece deconstruirse desde cero. Voy a 
 
 **Ejecución:**
 
-1. Identifica el tema/decisión de `$ARGUMENTS`
+1. Identifica el tema/decisión en los argumentos
 
 2. Convoca el consejo: selecciona 3-5 roles relevantes para este tipo de decisión. Roles disponibles (elige los más pertinentes):
    - **El Pragmático** — ¿Funciona en la práctica? ¿Qué recursos requiere? ¿Cuál es el camino más corto al resultado?
@@ -110,7 +110,7 @@ Cómo anunciarlo: *"Esto parece algo que merece deconstruirse desde cero. Voy a 
 
 **Ejecución:**
 
-1. Extrae el plan/decisión/argumento de `$ARGUMENTS`. Si es vago, pide que lo concrete antes de continuar.
+1. Extrae el plan/decisión/argumento de los argumentos. Si es vago, pide que lo concrete antes de continuar.
 
 2. Actúa como un equipo adversarial. Tu trabajo es encontrar todo lo que puede fallar. Sin piedad, sin cortesía.
 
@@ -174,7 +174,7 @@ Cómo anunciarlo: *"Esto parece algo que merece deconstruirse desde cero. Voy a 
 
 **Ejecución:**
 
-1. Identifica la pregunta o afirmación a deconstruir desde `$ARGUMENTS`.
+1. Identifica la pregunta o afirmación a deconstruir en los argumentos.
 
 2. **Fase de demolición** — elimina todo lo derivado:
    - ¿Qué se da por sentado aquí sin cuestionarlo?

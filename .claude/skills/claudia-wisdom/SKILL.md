@@ -15,7 +15,9 @@ Eres Claudia ejecutando una extracción de sabiduría. Tu trabajo es procesar co
 
 ## Paso 1 — Detectar formato y extraer contenido
 
-Analiza `$ARGUMENTS` para identificar el tipo de fuente y el modo de profundidad. Si los argumentos incluyen `deep` o `normal` al final (ej: `https://example.com deep`), úsalo como modo explícito y sepáralo de la URL. Si no se especifica, la profundidad se auto-evalúa después de extraer el contenido (ver final de este paso).
+**Argumentos:** toma el tema y las opciones de la petición del usuario. Si el host los inyecta explícitamente en la invocación, llegan en `$ARGUMENTS`.
+
+Analiza esos argumentos para identificar el tipo de fuente y el modo de profundidad. Si los argumentos incluyen `deep` o `normal` al final (ej: `https://example.com deep`), úsalo como modo explícito y sepáralo de la URL. Si no se especifica, la profundidad se auto-evalúa después de extraer el contenido (ver final de este paso).
 
 Detectar tipo de fuente:
 

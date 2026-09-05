@@ -15,6 +15,7 @@ Incluye:
 - Sistema de blueprints: plantillas de skills en `blueprints/` que Claudia adapta al contexto de cada usuario con `/claudia-blueprint`
 - Actualización del framework desde el propio asistente (`/claudia-update`)
 - Soporte para despliegue local y VPS
+- Portabilidad a otros agentes de terminal (Codex, OpenCode): guía de conversión en `PORTABILIDAD.md`
 
 ## Próximas prioridades
 
@@ -23,9 +24,6 @@ Incluye:
 - Skill de finanzas personales y profesionales: estructura base para seguimiento de gastos, ingresos y presupuestos, pensada para que cada usuario la adapte a su situación
 - Más blueprints de inicio para distintos perfiles (consultor, creador de contenido, gestor de proyectos)
 - Mejora del briefing diario: personalización de secciones y horario
-
-**Portabilidad**
-- Guía de adaptación para usar Claudia OS fuera de Claude Code (Codex, OpenCode, aider u otros agentes de terminal). El objetivo es documentar qué depende de Claude Code y qué ajustes necesita cada entorno alternativo
 
 **Onboarding y experiencia inicial**
 - Validación de entorno antes de empezar (Python, Node, dependencias)

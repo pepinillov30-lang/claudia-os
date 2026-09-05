@@ -126,6 +126,8 @@ Git, Python 3.10+ y Node.js 18+ son necesarios para algunas skills, pero si no l
 
 Las skills que no requieren nada externo funcionan desde el primer minuto.
 
+**¿Y si uso otro agente?** Claudia OS está pensado para Claude Code, pero se puede convertir para funcionar con Codex, OpenCode u otro agente de terminal. La conversión son tres cambios estructurales y está documentada en [PORTABILIDAD.md](PORTABILIDAD.md), incluidas las capacidades que se pierden por el camino.
+
 ---
 
 ## Primeros pasos

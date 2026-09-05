@@ -47,7 +47,7 @@ Cuando el blueprint no está en local:
 
 1. Avisa: _"El blueprint `<nombre>` no está en local. Voy a descargarlo de `sergi-rz/claudia-os`. ¿OK?"_ Espera confirmación.
 
-2. Con OK, usa **WebFetch** para descargar `https://raw.githubusercontent.com/sergi-rz/claudia-os/main/blueprints/<nombre>/blueprint.md`.
+2. Con OK, usa la herramienta de lectura de URLs disponible para descargar `https://raw.githubusercontent.com/sergi-rz/claudia-os/main/blueprints/<nombre>/blueprint.md`.
    - Si 404: para y avisa: _"No existe `<nombre>` en el repo canónico (puede que aún no esté publicado — la v1 del template está pendiente). Blueprints disponibles en local: <lista del Paso 0.1>."_
    - Si no es markdown válido: para y avisa.
 

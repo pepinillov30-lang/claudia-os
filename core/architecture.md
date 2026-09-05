@@ -34,6 +34,17 @@ Las extensiones van a una de estas dos zonas, ambas intocables por `/update`:
 
 Regla explícita para `/update`: nunca sobrescribir `.claude/skills/*/user/` ni nada bajo `user/`.
 
+### Memoria por workspace
+
+Cada workspace puede tener su memoria viva en `user/workspaces/<ws>/memory/MEMORY.md`:
+estado actual del proyecto, decisiones (con fecha y porqué) y gotchas específicos.
+Es distinta de la memoria global (`user/memory/`): aquí va solo lo que importa dentro
+de ese proyecto, no lecciones transversales ni contenido (el contenido va al vault).
+
+El disparador de mantenerla vive en el `CLAUDE.md` del propio workspace —que se carga
+automáticamente al trabajar ahí—, no en `core/`. Así la instrucción llega en el contexto
+correcto y funciona también en local, sin depender del cron nocturno.
+
 ## Skills privadas
 
 Una skill puede marcarse como privada creando un fichero `.private` en su raíz (ej: `.claude/skills/mi-skill/.private`). El contenido es libre (puede describir por qué es privada, o estar vacío).

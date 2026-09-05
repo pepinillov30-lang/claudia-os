@@ -65,8 +65,8 @@ Delega completamente a la skill `claudia-yt-transcript`, que extrae subtitulos d
 
 Escalacion progresiva en dos tiers:
 
-1. **Tier 1 — WebFetch**: pide el contenido como markdown limpio, ignorando navegacion, sidebars y ads
-2. **Tier 2 — curl con headers de navegador**: si WebFetch falla (403, bot detection, contenido vacio), hace curl con User-Agent y headers realistas
+1. **Tier 1 — lectura directa de URL**: pide el contenido como markdown limpio, ignorando navegacion, sidebars y ads
+2. **Tier 2 — curl con headers de navegador**: si la lectura directa falla (403, bot detection, contenido vacio), hace curl con User-Agent y headers realistas
 
 Si ambos fallan, sugiere alternativas: pegar el contenido manualmente o usar archive.org / 12ft.io.
 

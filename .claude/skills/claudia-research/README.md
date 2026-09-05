@@ -94,7 +94,7 @@ user/vault/claudia-research/{fecha}_{tema}/
 
 ## Requisitos
 
-- Acceso a internet (WebSearch + WebFetch)
+- Acceso a internet (búsqueda web + lectura de URLs)
 - `claude` CLI con permisos de agentes (para standard y deep, que lanzan sub-agentes)
 - Skill `claudia-wisdom` disponible (para extraer wisdom de fuentes clave)
 

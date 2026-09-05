@@ -22,7 +22,7 @@ Sincroniza la instalación local con la última versión del framework publicada
 - `CLAUDE.md`
 - `scripts/`
 - `blueprints/_template/` + blueprints que vengan del canónico
-- Documentos raíz: `README.md`, `ROADMAP.md`, `PHILOSOPHY.md`, `CONTRIBUTING.md`, `ATTRIBUTION.md`, `SECURITY.md`, `CLAUDIA_OS_OVERVIEW.md`, `VPS.md`
+- Documentos raíz: `README.md`, `ROADMAP.md`, `PHILOSOPHY.md`, `CONTRIBUTING.md`, `ATTRIBUTION.md`, `SECURITY.md`, `CLAUDIA_OS_OVERVIEW.md`, `VPS.md`, `PORTABILIDAD.md`
 
 ## Invocación
 
@@ -58,7 +58,7 @@ Branch:  main
 
 Ejecuta:
 ```
-git diff --stat HEAD upstream/main -- core/ .claude/skills/ CLAUDE.md scripts/ blueprints/ README.md ROADMAP.md PHILOSOPHY.md CONTRIBUTING.md ATTRIBUTION.md SECURITY.md CLAUDIA_OS_OVERVIEW.md VPS.md
+git diff --stat HEAD upstream/main -- core/ .claude/skills/ CLAUDE.md scripts/ blueprints/ README.md ROADMAP.md PHILOSOPHY.md CONTRIBUTING.md ATTRIBUTION.md SECURITY.md CLAUDIA_OS_OVERVIEW.md VPS.md PORTABILIDAD.md
 ```
 
 Si no hay cambios: _"Tu instalación ya está al día con el framework."_ Para.
@@ -119,7 +119,7 @@ Aplica en este orden:
 
 **6a. Core, CLAUDE.md, scripts y documentos raíz:**
 ```
-git checkout upstream/main -- core/ CLAUDE.md scripts/ README.md ROADMAP.md PHILOSOPHY.md CONTRIBUTING.md ATTRIBUTION.md SECURITY.md CLAUDIA_OS_OVERVIEW.md VPS.md
+git checkout upstream/main -- core/ CLAUDE.md scripts/ README.md ROADMAP.md PHILOSOPHY.md CONTRIBUTING.md ATTRIBUTION.md SECURITY.md CLAUDIA_OS_OVERVIEW.md VPS.md PORTABILIDAD.md
 ```
 
 **6b. Skills — con exclusión explícita de `*/user/`:**
